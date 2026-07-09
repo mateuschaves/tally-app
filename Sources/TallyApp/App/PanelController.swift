@@ -25,6 +25,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         observeOverlay()
         store.onToggleWidget = { [weak self] in self?.toggleWidget() }
         store.onShowWidget = { [weak self] in self?.showWidget() }
+        store.onHideWidget = { [weak self] in self?.hideWidget() }
+        store.widgetVisible = true
     }
 
     // MARK: Widget
@@ -62,14 +64,18 @@ final class PanelController: NSObject, NSWindowDelegate {
         pinnedTop = widgetPanel.frame.maxY
     }
 
-    func showWidget() { widgetPanel.orderFrontRegardless() }
+    func showWidget() {
+        widgetPanel.orderFrontRegardless()
+        store.widgetVisible = true
+    }
+
+    func hideWidget() {
+        widgetPanel.orderOut(nil)
+        store.widgetVisible = false
+    }
 
     func toggleWidget() {
-        if widgetPanel.isVisible {
-            widgetPanel.orderOut(nil)
-        } else {
-            widgetPanel.orderFrontRegardless()
-        }
+        if widgetPanel.isVisible { hideWidget() } else { showWidget() }
     }
 
     // MARK: Overlay

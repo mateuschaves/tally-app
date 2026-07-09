@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import TallyCore
 
 /// The "Cartão compacto" widget — full recreation of the prototype's Variante 1.
@@ -42,6 +43,15 @@ struct CompactCardView: View {
         .environment(\.theme, theme)
         .animation(.easeOut(duration: 0.2), value: store.addOpen)
         .animation(.easeOut(duration: 0.2), value: store.hasBlocked)
+        // Right-click to close/hide the widget (no visual change to the card).
+        .contextMenu {
+            Button("Nova tarefa") { store.openQuickEntry() }
+            Button("Resumo do dia") { store.openReport() }
+            Divider()
+            Button("Ocultar widget") { store.onHideWidget?() }
+            Divider()
+            Button("Sair do Tally") { NSApplication.shared.terminate(nil) }
+        }
     }
 
     // MARK: Header (drag handle)
