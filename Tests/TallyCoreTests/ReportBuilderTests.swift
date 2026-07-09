@@ -25,33 +25,33 @@ final class ReportBuilderTests: XCTestCase {
         XCTAssertTrue(report.text.hasPrefix("Resumo do dia — "))
     }
 
-    func testWeekendHistoryIsEmpty() {
-        // Monday 2026-07-13; offset 2 lands on Saturday 2026-07-11.
+    func testEmptyPastDayHasNoActivity() {
+        // No completions anywhere → any past day is empty (no synthetic history).
         let cal = PtBrDates.calendar
-        let monday = cal.date(from: DateComponents(year: 2026, month: 7, day: 13, hour: 10))!
-        let report = ReportBuilder.build(tasks: TaskEngine.seed(now: monday), offset: 2, now: monday)
+        let wednesday = cal.date(from: DateComponents(year: 2026, month: 7, day: 15, hour: 10))!
+        let report = ReportBuilder.build(tasks: [], offset: 3, now: wednesday)
 
         XCTAssertFalse(report.isToday)
         XCTAssertTrue(report.isEmpty)
-        XCTAssertTrue(report.text.hasSuffix("Sem atividade registrada (fim de semana)."))
+        XCTAssertEqual(report.doneCount, 0)
+        XCTAssertTrue(report.text.hasSuffix("Sem atividade registrada."))
     }
 
-    func testSampleHistoryClampsNonPositiveOffset() {
-        // offset 0 (and negatives) must not crash; clamped to 1.
-        let d0 = SampleHistory.day(offset: 0, now: now)
-        let d1 = SampleHistory.day(offset: 1, now: now)
-        XCTAssertEqual(d0.date, d1.date)
-    }
-
-    func testHistoryDayHasTemplateData() {
-        // Monday 2026-07-13; offset 3 lands on Friday 2026-07-10 (weekday).
+    func testPastDayFromRealCompletions() {
+        // A task completed "yesterday" shows up in the offset-1 report.
         let cal = PtBrDates.calendar
-        let monday = cal.date(from: DateComponents(year: 2026, month: 7, day: 13, hour: 10))!
-        let report = ReportBuilder.build(tasks: TaskEngine.seed(now: monday), offset: 3, now: monday)
+        let wednesday = cal.date(from: DateComponents(year: 2026, month: 7, day: 15, hour: 10))!
+        let yesterday = cal.date(from: DateComponents(year: 2026, month: 7, day: 14, hour: 15))!
+        var done = TaskItem(title: "Tarefa de ontem", project: "Geral", seconds: 1800, state: .done)
+        done.doneAt = yesterday
+
+        let report = ReportBuilder.build(tasks: [done], offset: 1, now: wednesday)
 
         XCTAssertFalse(report.isEmpty)
-        XCTAssertGreaterThan(report.doneCount, 0)
-        XCTAssertGreaterThan(report.bars.count, 0)
+        XCTAssertEqual(report.doneCount, 1)
+        XCTAssertEqual(report.doneTasks.first?.title, "Tarefa de ontem")
         XCTAssertEqual(report.planTitle, "◻ PLANEJADO PARA O DIA SEGUINTE")
+        // Today's live tasks must not leak into a past day.
+        XCTAssertEqual(report.blockedCount, 0)
     }
 }
