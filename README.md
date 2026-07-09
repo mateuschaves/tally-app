@@ -73,6 +73,9 @@ open Tally.xcodeproj
 - **Arrastar** o widget (posição persistida).
 - **Tema** claro/escuro, **acento** e **transparência** (Preferências).
 - Ícone na **barra de menus** + menus do app.
+- **Ocultar/mostrar o widget** pela barra de menus ("Ocultar/Mostrar widget") ou por
+  **clique direito** no cartão → "Ocultar widget" (ele volta pelo ícone da barra de menus;
+  "Sair" encerra o app).
 - **Persistência local** (tarefas, projetos e preferências) entre execuções.
 
 ## Notas

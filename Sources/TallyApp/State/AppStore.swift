@@ -56,11 +56,15 @@ final class AppStore: NSObject, ObservableObject {
     @Published var reportOffset = 0
     @Published var copied = false
     @Published var nowDate = Date()
+    /// Whether the floating widget panel is currently on screen (kept in sync by
+    /// PanelController) — drives the menu-bar "Ocultar/Mostrar" label.
+    @Published var widgetVisible = true
 
     // MARK: Window callbacks (wired by PanelController)
 
     var onToggleWidget: (() -> Void)?
     var onShowWidget: (() -> Void)?
+    var onHideWidget: (() -> Void)?
 
     // MARK: Dependencies
 

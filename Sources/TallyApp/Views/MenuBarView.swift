@@ -14,7 +14,9 @@ struct MenuBarView: View {
 
         Divider()
 
-        Button("Mostrar widget") { store.onShowWidget?() }
+        Button(store.widgetVisible ? "Ocultar widget" : "Mostrar widget") {
+            store.onToggleWidget?()
+        }
 
         SettingsLink {
             Text("Preferências…")
