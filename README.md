@@ -17,8 +17,10 @@ pronto para copiar ao gestor.
   (`NSPanel`), vidro (`NSVisualEffectView`), o Cartão compacto, os overlays (⌘K, impedimento,
   Resumo do dia), menu bar, atalho global e persistência local.
 
-Dados são **local-first**: um `TaskRepository` (protocolo) com implementação em arquivo
-JSON (`FileTaskRepository`). Modelos já nascem *sync-ready* (`id`/`updatedAt`/`deletedAt`)
+Dados são **local-first**: um `TaskRepository` (protocolo) com implementação em
+**SQLite** (`SQLiteTaskRepository`, usando o `libsqlite3` do sistema — sem dependência
+externa). Sem dados de exemplo: uma base nova começa vazia. Modelos já nascem
+*sync-ready* (`id`/`updatedAt`/`deletedAt`)
 para um backend/sync futuro entrar sem reescrever a UI.
 
 ```

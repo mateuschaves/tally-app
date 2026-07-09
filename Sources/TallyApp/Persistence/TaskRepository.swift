@@ -9,7 +9,7 @@ struct StoreSnapshot: Codable {
 
 /// Local-first persistence seam. The app depends only on this protocol, so a
 /// future `SyncingTaskRepository` (CloudKit or a custom API) can replace the
-/// local file store without touching the UI or the store.
+/// local SQLite store without touching the UI or the store.
 protocol TaskRepository {
     func load() -> StoreSnapshot?
     func save(_ snapshot: StoreSnapshot)
