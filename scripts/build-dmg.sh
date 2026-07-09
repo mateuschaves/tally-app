@@ -29,10 +29,19 @@ command -v xcodebuild >/dev/null 2>&1 || { echo "✗ xcodebuild não encontrado 
 echo "▸ Gerando o projeto (xcodegen)…"
 xcodegen generate
 
-echo "▸ Compilando em Release…"
-xcodebuild -project "$APP_NAME.xcodeproj" -scheme "$SCHEME" \
-  -configuration Release -derivedDataPath "$BUILD_DIR" \
-  clean build | tail -20
+LOG="$BUILD_DIR/xcodebuild.log"
+mkdir -p "$BUILD_DIR"
+echo "▸ Compilando em Release… (log completo: $LOG)"
+# Grava o log inteiro no arquivo; em caso de falha, mostra as últimas linhas
+# (com o erro) e aponta para o log completo, em vez de truncar tudo.
+if ! xcodebuild -project "$APP_NAME.xcodeproj" -scheme "$SCHEME" \
+    -configuration Release -derivedDataPath "$BUILD_DIR" \
+    clean build > "$LOG" 2>&1; then
+  echo "✗ Falha no build. Últimas linhas do log:"
+  tail -40 "$LOG"
+  echo "  → log completo em: $LOG"
+  exit 1
+fi
 
 [[ -d "$PRODUCT" ]] || { echo "✗ Não encontrei $PRODUCT"; exit 1; }
 
