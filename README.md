@@ -318,8 +318,8 @@ o Tally executa normalmente em macOS 26 e 27. Pontos que valem atenção:
   automaticamente** — ou seja, tende a ficar até mais fiel à cara do sistema.
 - **Controles padrão (Preferências: `Form`/`Picker`/`Slider`, menus):** ao **recompilar com o
   Xcode 26 (SDK do macOS 26)**, adotam o Liquid Glass nativo. É mudança visual, não quebra
-  funcional. (Se quiser manter o visual antigo temporariamente, dá para optar por
-  compatibilidade via a chave `UIDesignRequiresCompatibility` no Info.plist.)
+  funcional. Enquanto você continuar compilando com um SDK anterior, o app mantém o visual
+  atual — a adoção do Liquid Glass só acontece ao buildar contra o SDK do macOS 26.
 - **Atalho global ⌘K (Carbon `RegisterEventHotKey`):** ainda funciona no 26/27 e é o caminho
   padrão para hotkey global sem permissão de acessibilidade. É uma API **legada** (item de
   atenção para o futuro), mas sem substituto de primeira classe hoje.
@@ -331,10 +331,13 @@ o Tally executa normalmente em macOS 26 e 27. Pontos que valem atenção:
 pontos sensíveis — o widget flutua e aparece em todos os Spaces; o vidro renderiza bem em
 claro/escuro; o ⌘K global abre a captura; drag/persistência ok.
 
-**Melhoria opcional (Liquid Glass nativo):** adotar o modificador `.glassEffect(...)` do
-macOS 26 para o cartão e os overlays, com fallback para `NSVisualEffectView` nas versões
-anteriores, atrás de `if #available(macOS 26, *)`. Requer **compilar com o SDK do macOS 26**
-(por isso não está ativado por padrão, para não travar quem builda com Xcode mais antigo).
+**Melhoria opcional (Liquid Glass nativo):** o modificador `.glassEffect(...)` do SwiftUI é
+uma API **disponível a partir do macOS 26** ([docs da Apple](https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:))).
+Dá para adotá-lo no cartão e nos overlays mantendo o deployment target atual (macOS 14),
+desde que se faça o gate com `if #available(macOS 26, *)` e o fallback para
+`NSVisualEffectView` nas versões anteriores. Como referenciar o símbolo exige **compilar com
+o SDK do macOS 26** (Xcode 26), fica como follow-up para não travar quem builda com Xcode
+mais antigo.
 
 ## Roadmap
 
