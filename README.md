@@ -1,86 +1,322 @@
 # Tally
 
-App flutuante de tarefas para **macOS**, nativo em **SwiftUI + AppKit**, com estética
-macOS "Liquid Glass". Recriação fiel da variante **"Cartão compacto"** do protótipo
+**Tally** é um widget flutuante de tarefas para **macOS**, nativo em **SwiftUI + AppKit**,
+com estética "Liquid Glass". Uma janela pequena, sempre no topo, que mostra a tarefa
+**AGORA** com cronômetro ao vivo, a fila **A SEGUIR**, tarefas **IMPEDIDAS**, captura
+rápida por **⌘K** e um **Resumo do dia** pronto para copiar ao gestor.
+
+É a recriação nativa e fiel da variante **"Cartão compacto"** do protótipo
 `Fluxo - Protótipo` (Claude Design).
 
-Um widget always-on-top que mostra a tarefa **AGORA** com cronômetro ao vivo, a fila
-**A SEGUIR**, tarefas **IMPEDIDAS**, captura rápida por **⌘K** e um **Resumo do dia**
-pronto para copiar ao gestor.
+- **Plataforma:** macOS 14 (Sonoma) ou superior
+- **Stack:** SwiftUI + AppKit, lógica pura em Swift (Foundation), persistência em SQLite
+- **Sem dependências externas** de runtime (usa o `libsqlite3` do próprio sistema)
+
+## Sumário
+
+- [Funcionalidades](#funcionalidades)
+- [Atalhos de teclado](#atalhos-de-teclado)
+- [Arquitetura](#arquitetura)
+- [Estrutura de pastas](#estrutura-de-pastas)
+- [Requisitos](#requisitos)
+- [Começando (desenvolvimento)](#começando-desenvolvimento)
+- [Testes](#testes)
+- [Dados & persistência (SQLite)](#dados--persistência-sqlite)
+- [Build de release](#build-de-release)
+- [Assinatura & notarização](#assinatura--notarização)
+- [Gerar um DMG](#gerar-um-dmg)
+- [Publicar no Homebrew](#publicar-no-homebrew)
+- [Roadmap](#roadmap)
+
+## Funcionalidades
+
+- Tarefa **AGORA** com cronômetro ao vivo (1s) e **pausar/retomar**.
+- **A SEGUIR**: fila com "começar agora" e "impedir".
+- **IMPEDIDAS**: motivo do impedimento + "retomar".
+- **Concluir** tarefa (promove a próxima da fila automaticamente).
+- **Nova tarefa**: formulário detalhado (projeto / prioridade / estimativa) e **adição rápida**.
+- **⌘K** (global): captura estilo Spotlight com parser de linguagem natural
+  (`#projeto`, `!alta/!média/!baixa`, `30m`/`2h`) e chips de preview.
+- **Diálogo de impedimento** com motivos rápidos.
+- **Resumo do dia**: estatísticas, barras de tempo por tarefa, listas e **texto para copiar**,
+  navegável ←/→ entre dias (histórico real, baseado nas conclusões).
+- **Arrastar** o widget pelo cabeçalho (posição persistida).
+- **Tema** claro/escuro, **acento** e **transparência** (em Preferências).
+- Ícone na **barra de menus** com as ações principais.
+- **Ocultar/mostrar** o widget (menu da barra ou clique direito no cartão); "Sair" encerra o app.
+- **Persistência local** em SQLite (tarefas, projetos e preferências).
+- **Começa vazio** — sem nenhum dado de exemplo.
+
+## Atalhos de teclado
+
+| Atalho | Ação |
+| --- | --- |
+| **⌘K** (global) | Abrir captura rápida de tarefa |
+| **⏎** | Adicionar (nos campos de texto) |
+| **⌘⏎** | Confirmar impedimento (no diálogo) |
+| **Esc** | Fechar overlay (captura / impedimento / resumo) |
+| **← / →** | Navegar entre dias no Resumo do dia |
+| **⌘,** | Preferências (pela barra de menus) |
+| **⌘Q** | Sair do Tally |
 
 ## Arquitetura
 
-- **`TallyCore`** (`Sources/TallyCore`) — lógica pura, só Foundation, **sem AppKit/SwiftUI**.
-  Modelos, parser de quick-entry, motor de estados das tarefas, formatação de tempo e o
-  gerador do relatório. É testável em qualquer plataforma (`swift test`).
-- **`TallyApp`** (`Sources/TallyApp`) — a camada macOS (SwiftUI/AppKit): janela flutuante
-  (`NSPanel`), vidro (`NSVisualEffectView`), o Cartão compacto, os overlays (⌘K, impedimento,
-  Resumo do dia), menu bar, atalho global e persistência local.
+Dois alvos, separados por dependência de plataforma:
 
-Dados são **local-first**: um `TaskRepository` (protocolo) com implementação em
-**SQLite** (`SQLiteTaskRepository`, usando o `libsqlite3` do sistema — sem dependência
-externa). Sem dados de exemplo: uma base nova começa vazia. Modelos já nascem
-*sync-ready* (`id`/`updatedAt`/`deletedAt`)
-para um backend/sync futuro entrar sem reescrever a UI.
+- **`TallyCore`** (`Sources/TallyCore`) — **lógica pura**, só Foundation, **sem AppKit/SwiftUI**.
+  Modelos (`TaskItem`, `Priority`, `TaskState`), o motor de estados (`TaskEngine`), o parser
+  de quick-entry (`QuickParse`), formatação de tempo/datas e o gerador do relatório
+  (`ReportBuilder`). É **testável em qualquer plataforma** com `swift test`.
+- **`TallyApp`** (`Sources/TallyApp`) — a **camada macOS** (SwiftUI/AppKit): janela flutuante
+  (`NSPanel`), vidro (`NSVisualEffectView`), o Cartão compacto, os overlays, a barra de menus,
+  o atalho global (Carbon) e a persistência.
+
+**Fluxo de dados** (unidirecional, espelhando o componente React do protótipo):
 
 ```
-Sources/
-  TallyCore/     lógica pura (testável)
-  TallyApp/      app macOS (Xcode)
-Tests/
-  TallyCoreTests/  XCTest da lógica
-Package.swift    SwiftPM (TallyCore + testes)
-project.yml      XcodeGen → Tally.xcodeproj (o app)
+   View (SwiftUI)  ──ações──▶  AppStore (@MainActor, ObservableObject)
+        ▲                           │  usa
+        │  @Published               ▼
+   re-render  ◀───────────  TaskEngine / QuickParse / ReportBuilder   (TallyCore, puro)
+                                    │  persiste
+                                    ▼
+                          TaskRepository (protocolo)
+                                    │
+                                    ▼
+                        SQLiteTaskRepository (libsqlite3)
 ```
 
-## Como rodar
+- `AppStore` é a **fonte única de estado**: tarefas, preferências, estado efêmero de UI e o
+  timer de 1s. Toda mutação passa pelo `TaskEngine` (imutável) e persiste via `TaskRepository`.
+- Modelos já nascem **sync-ready** (`id: UUID`, `updatedAt`, `deletedAt`): um futuro
+  `SyncingTaskRepository` (CloudKit ou API própria) entra sem tocar na UI.
 
-### Testes da lógica (multiplataforma)
+## Estrutura de pastas
 
-Com um toolchain Swift instalado (macOS ou Linux):
+```
+tally-app/
+├── Package.swift                 SwiftPM: TallyCore + testes (multiplataforma)
+├── project.yml                   XcodeGen: gera o Tally.xcodeproj (o app macOS)
+├── scripts/
+│   └── build-dmg.sh              build de release + empacotamento em .dmg
+├── Sources/
+│   ├── TallyCore/                lógica pura (testável)
+│   │   ├── Models/               TaskItem, Priority, TaskState
+│   │   ├── TaskEngine.swift      transições: seed/normalize/complete/start/block/unblock/add/tick
+│   │   ├── QuickParse.swift      parser #projeto / !prioridade / 30m·2h
+│   │   ├── ReportBuilder.swift   Resumo do dia (modelo + texto para copiar)
+│   │   ├── TimeFormat.swift      formatação de tempo
+│   │   └── PtBrDates.swift       datas/horas em pt-BR
+│   └── TallyApp/                 app macOS (Xcode)
+│       ├── App/                  TallyApp, AppDelegate, FloatingPanel, OverlayWindow,
+│       │                         PanelController, GlobalHotKey
+│       ├── State/                AppStore, ProjectInfo
+│       ├── Persistence/          TaskRepository (protocolo), SQLiteTaskRepository
+│       ├── Theme/                Theme (tokens), VisualEffectBackground
+│       ├── Services/             ClipboardService
+│       └── Views/                CompactCardView, Card/, Overlays/, Components/, Preferences
+└── Tests/
+    └── TallyCoreTests/           XCTest da lógica pura
+```
+
+## Requisitos
+
+- **macOS 14 (Sonoma)+** e **Xcode 15+** (para compilar/rodar o app).
+- **[XcodeGen](https://github.com/yonaskolb/XcodeGen)** para gerar o projeto: `brew install xcodegen`.
+- (Opcional) toolchain Swift para rodar os testes do `TallyCore` fora do Xcode.
+- (Opcional, distribuição) conta **Apple Developer** ($99/ano) para assinar/notarizar.
+
+## Começando (desenvolvimento)
+
+```bash
+git clone https://github.com/mateuschaves/tally-app.git
+cd tally-app
+
+brew install xcodegen        # se ainda não tiver
+xcodegen generate            # gera o Tally.xcodeproj a partir do project.yml
+open Tally.xcodeproj         # selecione o esquema "Tally" e ⌘R
+```
+
+> **⚠️ Importante — regenere o projeto ao adicionar/remover arquivos.**
+> O `Tally.xcodeproj` é **gerado** e fica no `.gitignore` (não vem no `git pull`). O
+> `project.yml` monta a lista de arquivos **no momento** em que você roda `xcodegen generate`.
+> Se um `git pull` **adicionar ou remover** arquivos-fonte, rode `xcodegen generate` de novo
+> (e, no Xcode, **Product → Clean Build Folder**, ⇧⌘K). Erros do tipo
+> *"Build input file cannot be found"* costumam ser isso.
+
+> Sem XcodeGen? Crie um App macOS novo no Xcode (target macOS 14+, `LSUIElement = YES`),
+> arraste `Sources/TallyApp/*` para o target e adicione o pacote local `TallyCore` como dependência.
+
+## Testes
+
+A lógica de negócio vive no `TallyCore`, que não depende de AppKit/SwiftUI e roda em
+qualquer plataforma com toolchain Swift:
 
 ```bash
 swift test
 ```
 
-Exercita parser, formatação, motor de tarefas e relatório.
+Cobre o parser de quick-entry, formatação de tempo, as transições do `TaskEngine` e o
+`ReportBuilder` (incluindo histórico real e dias vazios).
 
-### O app (requer macOS + Xcode)
+## Dados & persistência (SQLite)
 
-O alvo do app usa SwiftUI/AppKit e **só compila no macOS/Xcode**. Geramos o projeto com
-[XcodeGen](https://github.com/yonaskolb/XcodeGen):
+Persistência **local-first** via `SQLiteTaskRepository` (usa o `libsqlite3` do sistema — sem
+dependência externa), atrás do protocolo `TaskRepository`.
+
+- **Arquivo:** `~/Library/Application Support/Tally/tally.sqlite3`
+- **Tabelas:**
+  - `tasks(id, title, project, priority, estimate, seconds, state, reason, doneAt, createdAt, updatedAt, deletedAt)`
+  - `projects(name, colorHex, ord)`
+- **Começa vazio:** uma base nova não tem linhas, então o app abre sem nenhuma tarefa (nada mocado).
+
+Inspecionar/depurar:
 
 ```bash
-brew install xcodegen
-xcodegen generate
-open Tally.xcodeproj
-# selecione o esquema "Tally" e ⌘R
+sqlite3 "~/Library/Application Support/Tally/tally.sqlite3" \
+  "SELECT title, state, seconds FROM tasks;"
 ```
 
-> Sem XcodeGen? Crie um App macOS novo no Xcode (target macOS 14+, `LSUIElement = YES`),
-> arraste `Sources/TallyApp/*` e adicione o pacote local `TallyCore` como dependência.
+Resetar os dados (apaga tudo): feche o app e remova o arquivo `tally.sqlite3`.
 
-## Funcionalidades (Cartão compacto — completo)
+## Build de release
 
-- Tarefa **AGORA** com cronômetro ao vivo (1s) e **pausar/retomar**.
-- **A SEGUIR**: fila com "começar agora" e "impedir".
-- **IMPEDIDAS**: motivo + "retomar".
-- **Concluir** tarefa (promove a próxima automaticamente).
-- **Nova tarefa**: formulário (projeto/prioridade/estimativa) e **adição rápida**.
-- **⌘K** (global): captura estilo Spotlight com parser `#projeto`, `!alta/!média/!baixa`,
-  `30m`/`2h`, com chips de preview.
-- **Diálogo de impedimento** com motivos rápidos.
-- **Resumo do dia**: stats, barras de tempo por tarefa, listas e **texto para copiar**,
-  navegável ←/→ por dias.
-- **Arrastar** o widget (posição persistida).
-- **Tema** claro/escuro, **acento** e **transparência** (Preferências).
-- Ícone na **barra de menus** + menus do app.
-- **Ocultar/mostrar o widget** pela barra de menus ("Ocultar/Mostrar widget") ou por
-  **clique direito** no cartão → "Ocultar widget" (ele volta pelo ícone da barra de menus;
-  "Sair" encerra o app).
-- **Persistência local** (tarefas, projetos e preferências) entre execuções.
+Gera o `Tally.app` em Release (sem assinatura):
 
-## Notas
+```bash
+xcodegen generate
+xcodebuild -project Tally.xcodeproj -scheme Tally \
+  -configuration Release -derivedDataPath build \
+  clean build
 
-- Distribuição fora da App Store requer conta Apple Developer para assinar/notarizar.
-- O ⌘K global usa o Carbon `RegisterEventHotKey` (não exige permissão de acessibilidade).
+# resultado:
+open build/Build/Products/Release/
+```
+
+O `.app` resultante roda localmente. Para distribuir a **outras máquinas** sem avisos do
+Gatekeeper, assine e notarize (abaixo).
+
+## Assinatura & notarização
+
+Distribuir fora da App Store exige um certificado **Developer ID Application** (Apple Developer
+Program). O projeto já habilita o **Hardened Runtime** (necessário para notarizar).
+
+```bash
+# 1) Assinar o app
+codesign --force --options runtime --timestamp --deep \
+  --sign "Developer ID Application: Seu Nome (TEAMID)" \
+  build/Build/Products/Release/Tally.app
+
+# 2) Guardar credenciais de notarização uma única vez (usa uma app-specific password)
+xcrun notarytool store-credentials "tally-notary" \
+  --apple-id "voce@exemplo.com" --team-id "TEAMID" --password "abcd-efgh-ijkl-mnop"
+
+# 3) Enviar para notarização e "grampear" (staple) o ticket
+ditto -c -k --keepParent build/Build/Products/Release/Tally.app Tally.zip
+xcrun notarytool submit Tally.zip --keychain-profile "tally-notary" --wait
+xcrun stapler staple build/Build/Products/Release/Tally.app
+```
+
+> Substitua `Seu Nome`, `TEAMID`, o Apple ID e a *app-specific password*
+> (gerada em https://appleid.apple.com → Segurança → Senhas específicas de app).
+
+## Gerar um DMG
+
+O jeito mais simples usa o **script incluído**, que compila em Release e empacota num `.dmg`
+com atalho para `/Applications` (arrastar-e-soltar):
+
+```bash
+./scripts/build-dmg.sh
+# → dist/Tally.dmg  (e imprime o sha256, útil para o Homebrew)
+```
+
+Para **assinar e notarizar o DMG** automaticamente, exporte as variáveis antes:
+
+```bash
+export SIGN_IDENTITY="Developer ID Application: Seu Nome (TEAMID)"
+export NOTARY_PROFILE="tally-notary"     # perfil salvo com notarytool store-credentials
+./scripts/build-dmg.sh
+```
+
+### Manualmente (sem o script)
+
+```bash
+APP="build/Build/Products/Release/Tally.app"
+mkdir -p dist/dmg && cp -R "$APP" dist/dmg/
+ln -s /Applications dist/dmg/Applications
+hdiutil create -volname "Tally" -srcfolder dist/dmg -ov -format UDZO dist/Tally.dmg
+rm -rf dist/dmg
+```
+
+### Alternativa: `create-dmg` (layout mais bonito)
+
+```bash
+brew install create-dmg
+create-dmg --volname "Tally" --app-drop-link 380 170 --icon "Tally.app" 130 170 \
+  dist/Tally.dmg build/Build/Products/Release/Tally.app
+```
+
+## Publicar no Homebrew
+
+Apps macOS de interface são distribuídos como **Homebrew Cask** (não "formula"). Para um
+projeto pessoal, o caminho prático é um **tap próprio**.
+
+**1. Publique o artefato num GitHub Release**
+
+Crie uma tag e um release, e anexe o `dist/Tally.dmg` (idealmente **assinado + notarizado**).
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+# suba o dist/Tally.dmg como asset do release v0.1.0 (site do GitHub ou `gh release create`)
+shasum -a 256 dist/Tally.dmg    # anote o sha256
+```
+
+**2. Crie um tap** — um repositório chamado `homebrew-<nome>`, ex.: `mateuschaves/homebrew-tally`,
+com o arquivo `Casks/tally.rb`:
+
+```ruby
+cask "tally" do
+  version "0.1.0"
+  sha256 "COLE_O_SHA256_AQUI"
+
+  url "https://github.com/mateuschaves/tally-app/releases/download/v#{version}/Tally.dmg"
+  name "Tally"
+  desc "Widget flutuante de tarefas para macOS"
+  homepage "https://github.com/mateuschaves/tally-app"
+
+  depends_on macos: ">= :sonoma"
+
+  app "Tally.app"
+
+  zap trash: [
+    "~/Library/Application Support/Tally",
+  ]
+end
+```
+
+**3. Instale a partir do tap:**
+
+```bash
+brew tap mateuschaves/tally
+brew install --cask tally
+# (ou, em uma linha) brew install --cask mateuschaves/tally/tally
+```
+
+> **Notarização importa:** se o app não for assinado/notarizado, o Gatekeeper bloqueia e pode
+> ser preciso instalar com `--no-quarantine`. Para uma experiência limpa, notarize o app (e o DMG).
+>
+> **Cask oficial (`homebrew-cask`):** só faz sentido depois de tração/estabilidade — o
+> repositório oficial exige critérios de notoriedade e versionamento. Comece com o tap próprio.
+
+## Roadmap
+
+Fora do escopo atual (uma variante, local-first):
+
+- Sync/backend real (CloudKit ou API própria) via `SyncingTaskRepository`.
+- As outras 3 variantes do widget (Pílula, Agenda do dia, Vidro puro).
+- Ícone do app (`AppIcon`), auto-update (Sparkle) e CI (GitHub Actions em `macos-latest`).
+- Notificações / modo foco; exportação (CSV/Markdown).
+
+---
+
+Feito com Swift, para macOS.
