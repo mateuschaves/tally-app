@@ -82,7 +82,7 @@ final class AppStore: NSObject, ObservableObject {
 
     // MARK: Init
 
-    init(repository: TaskRepository = FileTaskRepository()) {
+    init(repository: TaskRepository = SQLiteTaskRepository()) {
         self.repository = repository
         // All stored properties have inline defaults; finish phase 1 before we
         // touch `self` (NSObject subclass can't read instance state pre-super).
