@@ -82,12 +82,18 @@ public enum TaskEngine {
     }
 
     /// Make a task the active one, demoting the previous `.now` to `.next`.
-    /// Ported from `start` (note: no normalize — the swap already leaves one `.now`).
+    /// Ported from `start` (no normalize — the swap already leaves one `.now`).
+    /// If `id` is not present the tasks are returned unchanged, so we never
+    /// demote the active task without promoting a replacement. The promoted task
+    /// also has any stale `doneAt`/`reason` cleared.
     public static func start(_ tasks: [TaskItem], id: UUID, now: Date) -> [TaskItem] {
-        tasks.map { task -> TaskItem in
+        guard tasks.contains(where: { $0.id == id }) else { return tasks }
+        return tasks.map { task -> TaskItem in
             if task.id == id {
                 var copy = task
                 copy.state = .now
+                copy.doneAt = nil
+                copy.reason = nil
                 copy.updatedAt = now
                 return copy
             }

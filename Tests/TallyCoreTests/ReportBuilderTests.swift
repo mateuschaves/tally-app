@@ -36,6 +36,13 @@ final class ReportBuilderTests: XCTestCase {
         XCTAssertTrue(report.text.hasSuffix("Sem atividade registrada (fim de semana)."))
     }
 
+    func testSampleHistoryClampsNonPositiveOffset() {
+        // offset 0 (and negatives) must not crash; clamped to 1.
+        let d0 = SampleHistory.day(offset: 0, now: now)
+        let d1 = SampleHistory.day(offset: 1, now: now)
+        XCTAssertEqual(d0.date, d1.date)
+    }
+
     func testHistoryDayHasTemplateData() {
         // Monday 2026-07-13; offset 3 lands on Friday 2026-07-10 (weekday).
         let cal = PtBrDates.calendar

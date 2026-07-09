@@ -101,9 +101,10 @@ final class AppStore: NSObject, ObservableObject {
             widgetPosition = CGPoint(x: x, y: y)
         }
 
-        // Domain — restore or seed.
+        // Domain — restore or seed. Normalize restored tasks so the "one active
+        // task" invariant holds even if the saved snapshot lost its `.now`.
         if let snapshot = repository.load(), !snapshot.tasks.isEmpty {
-            tasks = snapshot.tasks
+            tasks = TaskEngine.normalize(snapshot.tasks, now: Date())
             projects = snapshot.projects.isEmpty ? ProjectPalette.defaults : snapshot.projects
         } else {
             tasks = TaskEngine.seed(now: Date())
@@ -321,9 +322,10 @@ final class AppStore: NSObject, ObservableObject {
 
     private func tick() {
         nowDate = Date()
-        if !paused && current != nil {
-            tasks = TaskEngine.tick(tasks, paused: paused, now: nowDate)
-        }
+        // Only mutate + throttle-save when the active timer actually advances.
+        // When paused or idle nothing changes, so we avoid needless disk writes.
+        guard !paused, current != nil else { return }
+        tasks = TaskEngine.tick(tasks, paused: paused, now: nowDate)
         ticksSinceSave += 1
         if ticksSinceSave >= 5 {
             ticksSinceSave = 0

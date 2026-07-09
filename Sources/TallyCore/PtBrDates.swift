@@ -12,11 +12,23 @@ public enum PtBrDates {
         return cal
     }
 
+    // DateFormatter creation is expensive, and `time()`/`long()` run on every
+    // UI refresh. Cache one formatter per format string (guarded for the cache
+    // mutation; formatters themselves are only used from the main thread).
+    private static let cacheLock = NSLock()
+    private static var formatterCache: [String: DateFormatter] = [:]
+
     private static func formatter(_ dateFormat: String) -> DateFormatter {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        if let cached = formatterCache[dateFormat] {
+            return cached
+        }
         let f = DateFormatter()
         f.locale = Locale(identifier: "pt_BR")
         f.calendar = calendar
         f.dateFormat = dateFormat
+        formatterCache[dateFormat] = f
         return f
     }
 

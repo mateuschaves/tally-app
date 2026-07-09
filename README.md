@@ -65,7 +65,7 @@ open Tally.xcodeproj
 - **IMPEDIDAS**: motivo + "retomar".
 - **Concluir** tarefa (promove a próxima automaticamente).
 - **Nova tarefa**: formulário (projeto/prioridade/estimativa) e **adição rápida**.
-- **⌘K / ⌘N** (global): captura estilo Spotlight com parser `#projeto`, `!alta/!média/!baixa`,
+- **⌘K** (global): captura estilo Spotlight com parser `#projeto`, `!alta/!média/!baixa`,
   `30m`/`2h`, com chips de preview.
 - **Diálogo de impedimento** com motivos rápidos.
 - **Resumo do dia**: stats, barras de tempo por tarefa, listas e **texto para copiar**,

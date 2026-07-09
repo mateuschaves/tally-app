@@ -95,10 +95,12 @@ public enum SampleHistory {
         )
     ]
 
-    /// The day `off` days before `now` (1 = yesterday). Ported from `histFor`:
-    /// anchor at noon, subtract `off` days; weekend → empty; else template
-    /// `(off - 1) % 7`.
+    /// The day `offset` days before `now` (1 = yesterday). Ported from `histFor`:
+    /// anchor at noon, subtract `offset` days; weekend → empty; else template
+    /// `(offset - 1) % 7`. `offset` is clamped to `>= 1` so this public API never
+    /// indexes with a negative value.
     public static func day(offset: Int, now: Date) -> Day {
+        let offset = max(1, offset)
         let calendar = PtBrDates.calendar
         let comps = calendar.dateComponents([.year, .month, .day], from: now)
         let noon = calendar.date(from: DateComponents(

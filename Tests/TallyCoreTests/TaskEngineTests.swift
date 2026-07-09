@@ -61,6 +61,24 @@ final class TaskEngineTests: XCTestCase {
         XCTAssertEqual(state(result, 2), .next)
     }
 
+    func testStartUnknownIdKeepsActive() {
+        let tasks = [task(1, .now), task(2, .next)]
+        let result = TaskEngine.start(tasks, id: uuid(99), now: now)
+        XCTAssertEqual(state(result, 1), .now) // not demoted without a replacement
+        XCTAssertEqual(state(result, 2), .next)
+    }
+
+    func testStartClearsStaleFields() {
+        var blocked = task(1, .blocked); blocked.reason = "x"
+        var done = task(2, .done); done.doneAt = now
+        let tasks = [blocked, done, task(3, .now)]
+        let result = TaskEngine.start(tasks, id: uuid(1), now: now)
+        let started = result.first { $0.id == uuid(1) }
+        XCTAssertEqual(started?.state, .now)
+        XCTAssertNil(started?.reason)
+        XCTAssertNil(started?.doneAt)
+    }
+
     func testBlockSetsReasonAndPromotesNext() {
         let tasks = [task(1, .now), task(2, .next)]
         let result = TaskEngine.block(tasks, id: uuid(1), reason: "Aguardando revisão", now: now)
