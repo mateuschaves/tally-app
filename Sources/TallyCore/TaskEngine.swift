@@ -12,7 +12,8 @@ public enum TaskEngine {
     // MARK: - Seed
 
     /// Deterministic sample data matching the prototype's `seed()`.
-    /// Fixed UUIDs keep tests stable and make the first-run data reproducible.
+    /// Fixed UUIDs keep tests stable. NOTE: this is a test/demo fixture only —
+    /// the app starts with an empty task list (no sample data).
     public static func seed(now: Date) -> [TaskItem] {
         func fixedID(_ n: Int) -> UUID {
             UUID(uuidString: "00000000-0000-0000-0000-0000000000" + String(format: "%02d", n))!

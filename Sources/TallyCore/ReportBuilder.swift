@@ -65,11 +65,12 @@ public enum ReportBuilder {
     }
 
     /// Build the report for `offset` days ago (0 = today, from live `tasks`).
+    /// Past days are derived from real completions — tasks whose `doneAt` falls on
+    /// that day — so there is no synthetic/sample history.
     public static func build(
         tasks: [TaskItem],
         offset rawOffset: Int,
-        now: Date,
-        history: HistoryProviding = SampleHistoryProvider()
+        now: Date
     ) -> Report {
         let offset = max(0, min(7, rawOffset))
         let isToday = offset == 0
@@ -104,28 +105,35 @@ public enum ReportBuilder {
             rFocusSeconds = focusSeconds
             rBars = todayBars(from: tasks)
         } else {
-            let day = history.day(offset: offset, now: now)
-            displayDate = day.date
-            dateLabel = PtBrDates.long(day.date)
+            let target = dayDate(offset: offset, now: now)
+            displayDate = target
+            dateLabel = PtBrDates.long(target)
             planCardLabel = "Planejadas"
             planTitle = "◻ PLANEJADO PARA O DIA SEGUINTE"
+            subtitle = "Histórico · " + (offset == 1 ? "ontem" : "\(offset) dias atrás")
 
-            if day.isEmpty {
+            // Real history: tasks completed on that calendar day.
+            let calendar = PtBrDates.calendar
+            let doneThatDay = tasks.filter { task in
+                guard task.state == .done, let doneAt = task.doneAt else { return false }
+                return calendar.isDate(doneAt, inSameDayAs: target)
+            }
+
+            // Blocked/plan are ephemeral states with no per-day snapshot, so past
+            // days only carry what was actually completed.
+            rBlocked = []
+            rPlan = []
+            rDone = doneThatDay.map { DoneLine(title: $0.title, secondsLabel: TimeFormat.duration($0.seconds)) }
+            rFocusSeconds = doneThatDay.reduce(0) { $0 + $1.seconds }
+            let maxSeconds = max(1, doneThatDay.map { $0.seconds }.max() ?? 1)
+            rBars = doneThatDay
+                .sorted { $0.seconds > $1.seconds }
+                .map { BarRow(title: $0.title, project: $0.project,
+                              label: TimeFormat.duration($0.seconds),
+                              width: barWidth($0.seconds, max: maxSeconds)) }
+
+            if doneThatDay.isEmpty {
                 isEmpty = true
-                subtitle = "Fim de semana · sem registro"
-                rDone = []; rBlocked = []; rPlan = []; rFocusSeconds = 0; rBars = []
-            } else {
-                subtitle = "Histórico · " + (offset == 1 ? "ontem" : "\(offset) dias atrás")
-                rDone = day.done.map { DoneLine(title: $0.title, secondsLabel: TimeFormat.duration($0.seconds)) }
-                rBlocked = day.blocked.map { BlockedLine(title: $0.title, reason: $0.reason) }
-                rPlan = day.plan.map { PlanLine(title: $0.title, estimateLabel: TimeFormat.minutes($0.estimate)) }
-                rFocusSeconds = day.done.reduce(0) { $0 + $1.seconds }
-                let maxSeconds = max(1, day.done.map { $0.seconds }.max() ?? 1)
-                rBars = day.done
-                    .sorted { $0.seconds > $1.seconds }
-                    .map { BarRow(title: $0.title, project: $0.project,
-                                  label: TimeFormat.duration($0.seconds),
-                                  width: barWidth($0.seconds, max: maxSeconds)) }
             }
         }
 
@@ -165,6 +173,16 @@ public enum ReportBuilder {
         max(3, Int((Double(seconds) / Double(maxSeconds) * 100).rounded()))
     }
 
+    /// Noon on the day `offset` days before `now` — the bucket used to match
+    /// completions by `doneAt`.
+    private static func dayDate(offset: Int, now: Date) -> Date {
+        let calendar = PtBrDates.calendar
+        let comps = calendar.dateComponents([.year, .month, .day], from: now)
+        let noon = calendar.date(from: DateComponents(
+            year: comps.year, month: comps.month, day: comps.day, hour: 12)) ?? now
+        return calendar.date(byAdding: .day, value: -offset, to: noon) ?? now
+    }
+
     /// The copyable plain-text summary, ported from the `L.push(...)` block.
     private static func buildText(
         dateLabel: String, isEmpty: Bool, isToday: Bool,
@@ -174,7 +192,7 @@ public enum ReportBuilder {
         var lines: [String] = []
         lines.append("Resumo do dia — \(dateLabel)")
         if isEmpty {
-            lines.append("Sem atividade registrada (fim de semana).")
+            lines.append("Sem atividade registrada.")
             return lines.joined(separator: "\n")
         }
 

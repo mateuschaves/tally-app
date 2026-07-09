@@ -117,7 +117,7 @@ struct DayReportView: View {
                 .font(.system(size: 13.5, weight: .semibold))
                 .foregroundColor(theme.tx1)
                 .padding(.top, 10)
-            Text("Fim de semana — nenhuma tarefa acompanhada neste dia.")
+            Text("Nenhuma tarefa concluída neste dia.")
                 .font(.system(size: 12))
                 .foregroundColor(theme.tx3)
                 .padding(.top, 4)

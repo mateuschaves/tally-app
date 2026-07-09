@@ -101,13 +101,14 @@ final class AppStore: NSObject, ObservableObject {
             widgetPosition = CGPoint(x: x, y: y)
         }
 
-        // Domain — restore or seed. Normalize restored tasks so the "one active
-        // task" invariant holds even if the saved snapshot lost its `.now`.
-        if let snapshot = repository.load(), !snapshot.tasks.isEmpty {
+        // Domain — restore from disk, or start empty (no sample data). Restored
+        // tasks are normalized so the "one active task" invariant holds even if
+        // the saved snapshot lost its `.now`.
+        if let snapshot = repository.load() {
             tasks = TaskEngine.normalize(snapshot.tasks, now: Date())
             projects = snapshot.projects.isEmpty ? ProjectPalette.defaults : snapshot.projects
         } else {
-            tasks = TaskEngine.seed(now: Date())
+            tasks = []
         }
 
         startTimer()
