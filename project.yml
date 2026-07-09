@@ -1,0 +1,38 @@
+name: Tally
+
+options:
+  bundleIdPrefix: com.tally
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+packages:
+  TallyCore:
+    # Local Swift package at the repo root (Package.swift → TallyCore library).
+    path: .
+
+targets:
+  Tally:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/TallyApp
+    dependencies:
+      - package: TallyCore
+        product: TallyCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tally.app
+        PRODUCT_NAME: Tally
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Sources/TallyApp/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../Frameworks"
