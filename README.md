@@ -308,6 +308,37 @@ brew install --cask tally
 > **Cask oficial (`homebrew-cask`):** só faz sentido depois de tração/estabilidade — o
 > repositório oficial exige critérios de notoriedade e versionamento. Comece com o tap próprio.
 
+## Compatibilidade com macOS 26 (Tahoe) e 27
+
+**Resumo: roda.** O deployment target é macOS 14, e apps antigos são forward-compatible —
+o Tally executa normalmente em macOS 26 e 27. Pontos que valem atenção:
+
+- **Vidro do widget/overlays:** desenhado com `NSVisualEffectView` (material `.hudWindow`),
+  que continua suportado. No Tahoe ele **já assume o visual de "Liquid Glass" novo
+  automaticamente** — ou seja, tende a ficar até mais fiel à cara do sistema.
+- **Controles padrão (Preferências: `Form`/`Picker`/`Slider`, menus):** ao **recompilar com o
+  Xcode 26 (SDK do macOS 26)**, adotam o Liquid Glass nativo. É mudança visual, não quebra
+  funcional. Enquanto você continuar compilando com um SDK anterior, o app mantém o visual
+  atual — a adoção do Liquid Glass só acontece ao buildar contra o SDK do macOS 26.
+- **Atalho global ⌘K (Carbon `RegisterEventHotKey`):** ainda funciona no 26/27 e é o caminho
+  padrão para hotkey global sem permissão de acessibilidade. É uma API **legada** (item de
+  atenção para o futuro), mas sem substituto de primeira classe hoje.
+- **Deprecações leves:** algumas chamadas (ex.: `foregroundColor`) são *soft-deprecated* em
+  favor de `foregroundStyle` — geram apenas *warnings* no SDK novo, **não quebram** o build.
+- **Janela flutuante (`NSPanel`, all-Spaces, não-ativante):** comportamento mantido no 26/27.
+
+**Verificação recomendada (no Mac, com macOS 26/27):** compilar com Xcode 26+, e checar os
+pontos sensíveis — o widget flutua e aparece em todos os Spaces; o vidro renderiza bem em
+claro/escuro; o ⌘K global abre a captura; drag/persistência ok.
+
+**Melhoria opcional (Liquid Glass nativo):** o modificador `.glassEffect(...)` do SwiftUI é
+uma API **disponível a partir do macOS 26** ([docs da Apple](https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:))).
+Dá para adotá-lo no cartão e nos overlays mantendo o deployment target atual (macOS 14),
+desde que se faça o gate com `if #available(macOS 26, *)` e o fallback para
+`NSVisualEffectView` nas versões anteriores. Como referenciar o símbolo exige **compilar com
+o SDK do macOS 26** (Xcode 26), fica como follow-up para não travar quem builda com Xcode
+mais antigo.
+
 ## Roadmap
 
 Fora do escopo atual (uma variante, local-first):
@@ -315,6 +346,7 @@ Fora do escopo atual (uma variante, local-first):
 - Sync/backend real (CloudKit ou API própria) via `SyncingTaskRepository`.
 - As outras 3 variantes do widget (Pílula, Agenda do dia, Vidro puro).
 - Ícone do app (`AppIcon`), auto-update (Sparkle) e CI (GitHub Actions em `macos-latest`).
+- Liquid Glass nativo (`.glassEffect`) no macOS 26+, com fallback para `NSVisualEffectView`.
 - Notificações / modo foco; exportação (CSV/Markdown).
 
 ---

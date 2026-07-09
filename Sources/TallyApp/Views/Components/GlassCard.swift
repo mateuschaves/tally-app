@@ -35,9 +35,9 @@ struct GlassCard: ViewModifier {
                         ),
                         lineWidth: 1
                     )
-                    .mask(
+                    .mask {
                         LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .center)
-                    )
+                    }
             )
             .shadow(color: shadow ? theme.shadowColor : .clear, radius: shadow ? 30 : 0, x: 0, y: shadow ? 22 : 0)
             .shadow(color: shadow ? theme.shadowColor.opacity(0.6) : .clear, radius: shadow ? 5 : 0, x: 0, y: shadow ? 2 : 0)
