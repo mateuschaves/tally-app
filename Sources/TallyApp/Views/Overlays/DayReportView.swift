@@ -252,7 +252,7 @@ struct DayReportView: View {
                 if !item.details.isEmpty { rowDetails(item.details) }
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.gray.opacity(0.16))
+                        Capsule().fill(theme.barTrack)
                         Capsule().fill(store.color(for: item.project).opacity(0.9))
                             .frame(width: geo.size.width * CGFloat(item.width) / 100)
                     }

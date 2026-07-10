@@ -14,6 +14,7 @@ public enum ReportBuilder {
         public let project: String
         /// Bar width percentage (2…100), relative to the longest task that day.
         public let width: Int
+        /// The task's description (empty when none).
         public let details: String
     }
 
@@ -54,7 +55,8 @@ public enum ReportBuilder {
         /// Section title ("PLANO DE AMANHÃ" / "PLANEJADO PARA O DIA SEGUINTE").
         public let planTitle: String
 
-        /// The active task, only present for today ("EM ANDAMENTO").
+        /// Fields of the active task (title/seconds/estimate/details), present only
+        /// for today — these populate the "EM ANDAMENTO" card. `nil` on past days.
         public let currentTitle: String?
         public let currentSecondsLabel: String?
         public let currentEstimateLabel: String?
