@@ -43,7 +43,6 @@ final class AppStore: NSObject, ObservableObject {
     @Published var transparency: Double = 40 {
         didSet { UserDefaults.standard.set(transparency, forKey: Keys.transparency) }
     }
-    private(set) var widgetPosition: CGPoint?
 
     // MARK: Ephemeral UI state
 
@@ -83,8 +82,6 @@ final class AppStore: NSObject, ObservableObject {
         static let theme = "tally.themeMode"
         static let accent = "tally.accentHex"
         static let transparency = "tally.transparency"
-        static let posX = "tally.widget.x"
-        static let posY = "tally.widget.y"
     }
 
     // MARK: Init
@@ -106,10 +103,6 @@ final class AppStore: NSObject, ObservableObject {
         }
         if let value = defaults.object(forKey: Keys.transparency) as? Double {
             transparency = value
-        }
-        if let x = defaults.object(forKey: Keys.posX) as? Double,
-           let y = defaults.object(forKey: Keys.posY) as? Double {
-            widgetPosition = CGPoint(x: x, y: y)
         }
 
         // Domain — restore from disk, or start empty (no sample data). Restored
@@ -349,12 +342,6 @@ final class AppStore: NSObject, ObservableObject {
 
     func setAccent(_ hex: String) { accentHex = hex }
     func setTransparency(_ value: Double) { transparency = value }
-
-    func saveWidgetPosition(_ point: CGPoint) {
-        widgetPosition = point
-        UserDefaults.standard.set(Double(point.x), forKey: Keys.posX)
-        UserDefaults.standard.set(Double(point.y), forKey: Keys.posY)
-    }
 
     // MARK: Timer
 

@@ -48,19 +48,25 @@ final class PanelController: NSObject, NSWindowDelegate {
         // Always show the widget on launch (centered).
         panel.orderFrontRegardless()
         store.widgetVisible = true
-        // The SwiftUI content settles to its fitted height a beat after mounting;
-        // re-center once it has so the widget is truly centered.
+        // The SwiftUI content settles to its fitted height a beat after mounting,
+        // so re-center once it has. Skip if the user already dragged the widget in
+        // the meantime: a drag updates `pinnedTop`, so a changed value means we'd
+        // be snapping their chosen position back to center — leave it alone.
+        let topAtLaunch = pinnedTop
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 60_000_000)
-            self?.positionWidget()
+            guard let self, self.pinnedTop == topAtLaunch else { return }
+            self.positionWidget()
         }
     }
 
     private func positionWidget() {
-        guard let screen = NSScreen.main else { return }
+        // Prefer the screen the panel actually sits on (multi-monitor), falling
+        // back to the main screen before it has been placed.
+        guard let screen = widgetPanel.screen ?? NSScreen.main else { return }
         let visible = screen.visibleFrame
         let size = widgetPanel.frame.size
-        // Open centered on the active screen's visible area.
+        // Open centered on that screen's visible area.
         let origin = CGPoint(x: visible.midX - size.width / 2,
                              y: visible.midY - size.height / 2)
         widgetPanel.setFrameOrigin(origin)
@@ -120,7 +126,9 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func windowDidMove(_ notification: Notification) {
         guard (notification.object as? NSWindow) === widgetPanel else { return }
-        store.saveWidgetPosition(widgetPanel.frame.origin)
+        // Re-pin the top edge so the widget keeps growing downward from where the
+        // user dropped it. The position itself isn't persisted — launch always
+        // re-centers — so there's nothing to save here.
         pinnedTop = widgetPanel.frame.maxY
     }
 
