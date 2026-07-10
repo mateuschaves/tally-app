@@ -4,8 +4,8 @@ import Combine
 
 /// Owns the two AppKit windows — the floating widget and the shared full-screen
 /// overlay — and keeps the overlay's visibility in sync with `store.overlay`.
-/// Also pins the widget's top edge so it grows downward (like the mock, anchored
-/// top-right) and persists its position after a drag.
+/// The widget appears centered on launch and pins its top edge so it grows
+/// downward; a drag repositions it and persists the new origin.
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
 
@@ -45,20 +45,24 @@ final class PanelController: NSObject, NSWindowDelegate {
         widgetPanel = panel
 
         positionWidget()
-        if store.widgetVisible { panel.orderFrontRegardless() }
+        // Always show the widget on launch (centered).
+        panel.orderFrontRegardless()
+        store.widgetVisible = true
+        // The SwiftUI content settles to its fitted height a beat after mounting;
+        // re-center once it has so the widget is truly centered.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 60_000_000)
+            self?.positionWidget()
+        }
     }
 
     private func positionWidget() {
         guard let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
         let size = widgetPanel.frame.size
-        let origin: CGPoint
-        if let saved = store.widgetPosition {
-            origin = saved
-        } else {
-            origin = CGPoint(x: visible.maxX - size.width - 36,
-                             y: visible.maxY - size.height - 12)
-        }
+        // Open centered on the active screen's visible area.
+        let origin = CGPoint(x: visible.midX - size.width / 2,
+                             y: visible.midY - size.height / 2)
         widgetPanel.setFrameOrigin(origin)
         pinnedTop = widgetPanel.frame.maxY
     }
