@@ -29,7 +29,7 @@ struct BlockedRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            UnblockButton(theme: theme, fontSize: 13) { store.unblock(task.id) }
+            UnblockButton(theme: theme) { store.unblock(task.id) }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 5)

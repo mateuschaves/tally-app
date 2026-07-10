@@ -50,6 +50,10 @@ struct QuickEntryView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
 
+            detailsEditor
+                .padding(.horizontal, 16)
+                .padding(.bottom, 11)
+
             if !chips.isEmpty {
                 FlowLayout(spacing: 6, lineSpacing: 6) {
                     ForEach(chips, id: \.self) { chip in
@@ -70,6 +74,37 @@ struct QuickEntryView: View {
         }
         .glassCard(theme, radius: 16, tint: theme.popover(0.94))
         .onAppear { focused = true }
+        .overlay {
+            // ⌘⏎ adds even while the description field has focus.
+            Button("") { store.submitQuickEntry() }
+                .keyboardShortcut(.return, modifiers: .command)
+                .buttonStyle(.plain)
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var detailsEditor: some View {
+        ZStack(alignment: .topLeading) {
+            TextEditor(text: Binding(get: { store.quickEntryDetails }, set: { store.quickEntryDetails = $0 }))
+                .font(.system(size: 13))
+                .foregroundColor(theme.tx1)
+                .scrollContentBackground(.hidden)
+                .frame(height: 46)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 5)
+            if store.quickEntryDetails.isEmpty {
+                Text("Descrição (opcional)")
+                    .font(.system(size: 13))
+                    .foregroundColor(theme.tx3)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 9)
+                    .allowsHitTesting(false)
+            }
+        }
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(theme.selection))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(theme.line, lineWidth: 1))
     }
 
     private var hintFooter: some View {

@@ -40,6 +40,7 @@ final class SQLiteTaskRepository: TaskRepository {
         CREATE TABLE IF NOT EXISTS tasks (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
+            details TEXT NOT NULL DEFAULT '',
             project TEXT NOT NULL,
             priority TEXT NOT NULL,
             estimate INTEGER NOT NULL,
@@ -57,6 +58,9 @@ final class SQLiteTaskRepository: TaskRepository {
             ord INTEGER NOT NULL
         );
         """)
+        // Migration for databases created before `details` existed. A duplicate
+        // column error on newer DBs is expected and ignored.
+        exec("ALTER TABLE tasks ADD COLUMN details TEXT NOT NULL DEFAULT '';")
     }
 
     // MARK: TaskRepository
@@ -89,7 +93,7 @@ final class SQLiteTaskRepository: TaskRepository {
     private func loadTasks() -> [TaskItem] {
         var result: [TaskItem] = []
         let sql = """
-        SELECT id,title,project,priority,estimate,seconds,state,reason,doneAt,createdAt,updatedAt,deletedAt
+        SELECT id,title,project,priority,estimate,seconds,state,reason,doneAt,createdAt,updatedAt,deletedAt,details
         FROM tasks WHERE deletedAt IS NULL;
         """
         var stmt: OpaquePointer?
@@ -108,6 +112,7 @@ final class SQLiteTaskRepository: TaskRepository {
             result.append(TaskItem(
                 id: id,
                 title: title,
+                details: columnText(stmt, 12) ?? "",
                 project: project,
                 priority: priority,
                 estimate: Int(sqlite3_column_int64(stmt, 4)),
@@ -141,8 +146,8 @@ final class SQLiteTaskRepository: TaskRepository {
 
     private func insertTask(_ task: TaskItem) {
         let sql = """
-        INSERT INTO tasks (id,title,project,priority,estimate,seconds,state,reason,doneAt,createdAt,updatedAt,deletedAt)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?);
+        INSERT INTO tasks (id,title,project,priority,estimate,seconds,state,reason,doneAt,createdAt,updatedAt,deletedAt,details)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
@@ -160,6 +165,7 @@ final class SQLiteTaskRepository: TaskRepository {
         sqlite3_bind_double(stmt, 10, task.createdAt.timeIntervalSince1970)
         sqlite3_bind_double(stmt, 11, task.updatedAt.timeIntervalSince1970)
         bindDateOrNull(stmt, 12, task.deletedAt)
+        bindText(stmt, 13, task.details)
 
         sqlite3_step(stmt)
     }

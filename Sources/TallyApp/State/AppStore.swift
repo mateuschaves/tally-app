@@ -9,14 +9,16 @@ enum OverlayKind: Equatable {
     case quickEntry
     case block
     case report
+    case newProject
 }
 
 /// Detailed add-form fields (`this.state.f`).
 struct FormState: Equatable {
     var title = ""
+    var details = ""
     var project = "Geral"
     var priority: Priority = .media
-    var estimate = 30
+    var estimate = 60
 }
 
 /// The single source of truth — a direct port of the prototype's React component
@@ -53,12 +55,19 @@ final class AppStore: NSObject, ObservableObject {
     @Published var blockId: UUID?
     @Published var blockReason = ""
     @Published var quickEntryText = ""
+    @Published var quickEntryDetails = ""
     @Published var reportOffset = 0
     @Published var copied = false
     @Published var nowDate = Date()
-    /// Whether the floating widget panel is currently on screen (kept in sync by
-    /// PanelController) — drives the menu-bar "Ocultar/Mostrar" label.
-    @Published var widgetVisible = true
+    /// New-project modal fields (`npName`/`npColor`).
+    @Published var newProjectName = ""
+    @Published var newProjectColor = "#5AC8FA"
+    /// Whether the floating widget panel is currently on screen. Persisted so the
+    /// close (×) button keeps it hidden across launches; drives the menu-bar
+    /// "Ocultar/Mostrar" label.
+    @Published var widgetVisible = true {
+        didSet { UserDefaults.standard.set(widgetVisible, forKey: Keys.widgetVisible) }
+    }
 
     // MARK: Window callbacks (wired by PanelController)
 
@@ -78,6 +87,7 @@ final class AppStore: NSObject, ObservableObject {
         static let transparency = "tally.transparency"
         static let posX = "tally.widget.x"
         static let posY = "tally.widget.y"
+        static let widgetVisible = "tally.widget.visible"
     }
 
     // MARK: Init
@@ -103,6 +113,9 @@ final class AppStore: NSObject, ObservableObject {
         if let x = defaults.object(forKey: Keys.posX) as? Double,
            let y = defaults.object(forKey: Keys.posY) as? Double {
             widgetPosition = CGPoint(x: x, y: y)
+        }
+        if let visible = defaults.object(forKey: Keys.widgetVisible) as? Bool {
+            widgetVisible = visible
         }
 
         // Domain — restore from disk, or start empty (no sample data). Restored
@@ -198,12 +211,13 @@ final class AppStore: NSObject, ObservableObject {
     }
 
     /// Core add path. Resets the entry surfaces on success (`addTask`).
-    func addTask(title: String, project: String = "Geral", priority: Priority = .media, estimate: Int = 30) {
+    func addTask(title: String, details: String = "", project: String = "Geral", priority: Priority = .media, estimate: Int = 60) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        tasks = TaskEngine.add(tasks, title: trimmed, project: project, priority: priority, estimate: estimate, now: Date())
+        tasks = TaskEngine.add(tasks, title: trimmed, details: details, project: project, priority: priority, estimate: estimate, now: Date())
         quick = ""
         quickEntryText = ""
+        quickEntryDetails = ""
         addOpen = false
         overlay = .none
         form = FormState()
@@ -211,7 +225,7 @@ final class AppStore: NSObject, ObservableObject {
     }
 
     func submitForm() {
-        addTask(title: form.title, project: form.project, priority: form.priority, estimate: form.estimate)
+        addTask(title: form.title, details: form.details, project: form.project, priority: form.priority, estimate: form.estimate)
     }
 
     func submitQuick() {
@@ -222,9 +236,10 @@ final class AppStore: NSObject, ObservableObject {
         let parsed = QuickParse.parse(quickEntryText)
         addTask(
             title: parsed.title,
+            details: quickEntryDetails,
             project: parsed.project.map { canonicalProject($0) } ?? "Geral",
             priority: parsed.priority ?? .media,
-            estimate: parsed.estimate ?? 30
+            estimate: parsed.estimate ?? 60
         )
     }
 
@@ -232,8 +247,44 @@ final class AppStore: NSObject, ObservableObject {
 
     func openQuickEntry() {
         quickEntryText = ""
+        quickEntryDetails = ""
         blockId = nil
         overlay = .quickEntry
+    }
+
+    // MARK: New project
+
+    /// Open the "Novo projeto" modal (from the add form's "+ Novo" chip).
+    func openNewProject() {
+        newProjectName = ""
+        newProjectColor = "#5AC8FA"
+        overlay = .newProject
+    }
+
+    func closeNewProject() {
+        overlay = .none
+    }
+
+    /// Add (or reuse) a project with the given color; returns the canonical name.
+    /// Case-insensitive dedup, mirroring the prototype's `addProject`.
+    @discardableResult
+    func addProject(name: String, color: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if let existing = projects.first(where: { $0.name.lowercased() == trimmed.lowercased() }) {
+            return existing.name
+        }
+        projects.append(ProjectInfo(name: trimmed, colorHex: color))
+        persist()
+        return trimmed
+    }
+
+    /// Confirm the modal: create the project and select it in the add form.
+    func confirmNewProject() {
+        guard let key = addProject(name: newProjectName, color: newProjectColor) else { return }
+        form.project = key
+        newProjectName = ""
+        overlay = .none
     }
 
     func openAdd() { addOpen = true }

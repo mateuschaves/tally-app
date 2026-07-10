@@ -26,7 +26,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         store.onToggleWidget = { [weak self] in self?.toggleWidget() }
         store.onShowWidget = { [weak self] in self?.showWidget() }
         store.onHideWidget = { [weak self] in self?.hideWidget() }
-        store.widgetVisible = true
     }
 
     // MARK: Widget
@@ -46,7 +45,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         widgetPanel = panel
 
         positionWidget()
-        panel.orderFrontRegardless()
+        if store.widgetVisible { panel.orderFrontRegardless() }
     }
 
     private func positionWidget() {

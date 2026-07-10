@@ -58,6 +58,35 @@ struct CheckShape: Shape {
     }
 }
 
+/// Right-pointing play triangle for the "start now" ring
+/// (`M2.3 1.3 8.5 5 2.3 8.7 Z` in a 10×10 box).
+struct PlayTriangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x / 10 * rect.width, y: rect.minY + y / 10 * rect.height)
+        }
+        var path = Path()
+        path.move(to: point(2.3, 1.3))
+        path.addLine(to: point(8.5, 5))
+        path.addLine(to: point(2.3, 8.7))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// The "×" of the traffic-light close button (`M2 2 L8 8 M8 2 L2 8`, 10×10 box).
+struct CloseXShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x / 10 * rect.width, y: rect.minY + y / 10 * rect.height)
+        }
+        var path = Path()
+        path.move(to: point(2, 2)); path.addLine(to: point(8, 8))
+        path.move(to: point(8, 2)); path.addLine(to: point(2, 8))
+        return path
+    }
+}
+
 /// A section label like "AGORA" / "A SEGUIR" / "IMPEDIDAS".
 struct SectionLabel: View {
     let text: String

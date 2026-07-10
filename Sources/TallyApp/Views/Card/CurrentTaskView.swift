@@ -10,8 +10,8 @@ struct CurrentTaskView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            CompleteButton(theme: theme, size: 22) { store.complete(task.id) }
-                .padding(.top, 1)
+            CompleteButton(theme: theme, size: 17) { store.complete(task.id) }
+                .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(task.title)
@@ -20,6 +20,18 @@ struct CurrentTaskView: View {
                     .foregroundColor(theme.tx1)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                if !task.details.isEmpty {
+                    Text(task.details)
+                        .font(.system(size: 11.5))
+                        .foregroundColor(theme.tx2)
+                        .lineSpacing(1.5)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                }
 
                 HStack(spacing: 9) {
                     HStack(spacing: 5) {
@@ -41,7 +53,7 @@ struct CurrentTaskView: View {
 
                     Spacer(minLength: 0)
 
-                    FlagButton(theme: theme, baseOpacity: 0.4, fontSize: 12) { store.openBlock(task.id) }
+                    FlagButton(theme: theme, size: 24, glyphSize: 13, baseOpacity: 0.55) { store.openBlock(task.id) }
                 }
                 .padding(.top, 6)
 
