@@ -14,6 +14,8 @@ struct DayReportView: View {
     /// Measured height of the scrollable content, so the card hugs its content
     /// (short reports stay short) instead of stretching to the full screen.
     @State private var contentHeight: CGFloat = 300
+    /// "TEXTO PARA ENVIAR" starts collapsed.
+    @State private var reportTextOpen = false
 
     var body: some View {
         GeometryReader { geo in
@@ -81,9 +83,20 @@ struct DayReportView: View {
             emptyState
         } else {
             statsGrid
-            barsSection
-            listsSection
-            copyTextSection
+            VStack(alignment: .leading, spacing: 10) {
+                doneCard
+                if isToday, report.currentTitle != nil {
+                    inProgressCard
+                }
+                if !report.blockedTasks.isEmpty {
+                    blockedCard
+                }
+                if !report.planList.isEmpty {
+                    planCard
+                }
+                textCard
+            }
+            .padding(.top, 14)
         }
     }
 
@@ -169,126 +182,199 @@ struct DayReportView: View {
         .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(theme.selection))
     }
 
-    // MARK: Bars
+    // MARK: Report cards
 
-    private var barsSection: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text("TEMPO POR TAREFA")
-                .font(.system(size: 10.5, weight: .bold))
-                .tracking(0.9)
-                .foregroundColor(theme.tx3)
-                .padding(.top, 19)
-                .padding(.bottom, 2)
-
-            ForEach(Array(report.bars.enumerated()), id: \.offset) { _, bar in
-                HStack(spacing: 10) {
-                    Text(bar.title)
-                        .font(.system(size: 12))
-                        .foregroundColor(theme.tx2)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(width: 190, alignment: .trailing)
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 4).fill(theme.selection)
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(store.color(for: bar.project).opacity(0.85))
-                                .frame(width: geo.size.width * CGFloat(bar.width) / 100)
-                        }
-                    }
-                    .frame(height: 14)
-                    Text(bar.label)
-                        .font(.system(size: 11))
-                        .monospacedDigit()
-                        .foregroundColor(theme.tx3)
-                        .frame(width: 52, alignment: .leading)
-                }
-            }
-        }
+    private func reportCard<Content: View>(bottom: CGFloat = 5, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) { content() }
+            .padding(.horizontal, 14)
+            .padding(.top, 11)
+            .padding(.bottom, bottom)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(theme.selection))
     }
 
-    // MARK: Lists (done / blocked / plan)
+    private var cardHairline: some View { Rectangle().fill(theme.line).frame(height: 1) }
 
-    private var listsSection: some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 0) {
-                columnTitle("✓ CONCLUÍDAS", color: theme.green)
-                ForEach(Array(report.doneTasks.enumerated()), id: \.offset) { _, item in
-                    leaderRow(title: item.title, trailing: item.secondsLabel, titleColor: theme.tx1)
-                }
-                if isToday {
-                    columnTitle("▶ EM ANDAMENTO", color: theme.accent).padding(.top, 14)
-                    if let title = report.currentTitle {
-                        leaderRow(title: title, trailing: report.currentSecondsLabel ?? "", titleColor: theme.tx1)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            VStack(alignment: .leading, spacing: 0) {
-                columnTitle("⚑ IMPEDIDAS", color: theme.red)
-                ForEach(Array(report.blockedTasks.enumerated()), id: \.offset) { _, item in
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(item.title).font(.system(size: 12.5)).foregroundColor(theme.tx1)
-                        Text(item.reason).font(.system(size: 11)).italic().foregroundColor(theme.tx3)
-                    }
-                    .padding(.vertical, 3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                columnTitle(report.planTitle, color: theme.tx3).padding(.top, 14)
-                ForEach(Array(report.planList.enumerated()), id: \.offset) { _, item in
-                    HStack(spacing: 8) {
-                        Text(item.title).font(.system(size: 12.5)).foregroundColor(theme.tx2)
-                        Spacer(minLength: 0)
-                        Text(item.estimateLabel).font(.system(size: 11)).monospacedDigit().foregroundColor(theme.tx3)
-                    }
-                    .padding(.vertical, 3)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.top, 19)
-    }
-
-    private func columnTitle(_ text: String, color: Color) -> some View {
+    private func cardLabel(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 10.5, weight: .bold))
-            .tracking(0.9)
-            .foregroundColor(color)
-            .padding(.bottom, 8)
+            .tracking(0.8)
+            .foregroundColor(theme.tx2)
     }
 
-    private func leaderRow(title: String, trailing: String, titleColor: Color) -> some View {
-        HStack(spacing: 8) {
-            Text(title).font(.system(size: 12.5)).foregroundColor(titleColor).lineLimit(1)
-            DottedLeader(color: theme.line)
-            Text(trailing).font(.system(size: 11)).monospacedDigit().foregroundColor(theme.tx3)
+    private func rowDetails(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11))
+            .foregroundColor(theme.tx3)
+            .lineSpacing(1.5)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 2)
+    }
+
+    private var doneCard: some View {
+        reportCard {
+            HStack(spacing: 7) {
+                Text("✓").font(.system(size: 12)).foregroundColor(theme.green)
+                cardLabel("CONCLUÍDAS")
+                Spacer(minLength: 0)
+                Text("barra = tempo dedicado").font(.system(size: 10.5)).foregroundColor(theme.tx3)
+            }
+            .padding(.bottom, 7)
+
+            if report.doneTasks.isEmpty {
+                cardHairline
+                Text("Nenhuma tarefa concluída neste dia.")
+                    .font(.system(size: 12))
+                    .foregroundColor(theme.tx3)
+                    .padding(.top, 8)
+                    .padding(.bottom, 5)
+            } else {
+                ForEach(Array(report.doneTasks.enumerated()), id: \.offset) { _, item in
+                    doneRow(item)
+                }
+            }
         }
-        .padding(.vertical, 3)
     }
 
-    // MARK: Copy text
-
-    private var copyTextSection: some View {
+    private func doneRow(_ item: ReportBuilder.DoneLine) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("TEXTO PARA ENVIAR")
-                .font(.system(size: 10.5, weight: .bold))
-                .tracking(0.9)
-                .foregroundColor(theme.tx3)
-                .padding(.top, 19)
-                .padding(.bottom, 8)
-            Text(report.text)
-                .font(.system(size: 11.5, design: .monospaced))
-                .foregroundColor(theme.tx2)
-                .lineSpacing(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 15)
-                .padding(.vertical, 13)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(theme.selection))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(theme.line, lineWidth: 1))
-                .textSelection(.enabled)
+            cardHairline
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(item.title)
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundColor(theme.tx1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(item.secondsLabel)
+                        .font(.system(size: 11)).monospacedDigit().foregroundColor(theme.tx3)
+                }
+                if !item.details.isEmpty { rowDetails(item.details) }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.gray.opacity(0.16))
+                        Capsule().fill(store.color(for: item.project).opacity(0.9))
+                            .frame(width: geo.size.width * CGFloat(item.width) / 100)
+                    }
+                }
+                .frame(height: 3)
+                .padding(.top, 7)
+            }
+            .padding(.vertical, 8)
         }
+    }
+
+    private var inProgressCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 7) {
+                PulseDot(color: theme.accent, size: 6)
+                cardLabel("EM ANDAMENTO")
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(report.currentTitle ?? "")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundColor(theme.tx1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("\(report.currentSecondsLabel ?? "") de \(report.currentEstimateLabel ?? "")")
+                    .font(.system(size: 11)).monospacedDigit().foregroundColor(theme.tx3)
+            }
+            .padding(.top, 8)
+            if let details = report.currentDetails, !details.isEmpty { rowDetails(details) }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(theme.selection))
+    }
+
+    private var blockedCard: some View {
+        reportCard {
+            HStack(spacing: 7) {
+                Text("⚑").font(.system(size: 12)).foregroundColor(theme.red)
+                cardLabel("IMPEDIDAS")
+            }
+            .padding(.bottom, 7)
+            ForEach(Array(report.blockedTasks.enumerated()), id: \.offset) { _, item in
+                VStack(alignment: .leading, spacing: 0) {
+                    cardHairline
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(item.title)
+                            .font(.system(size: 12.5, weight: .medium))
+                            .foregroundColor(theme.tx1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if !item.details.isEmpty { rowDetails(item.details) }
+                        (Text("motivo: ").foregroundColor(theme.red)
+                            + Text(item.reason).foregroundColor(theme.tx2).italic())
+                            .font(.system(size: 11))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 4)
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+        }
+    }
+
+    private var planCard: some View {
+        reportCard {
+            HStack(spacing: 7) {
+                Text("◻").font(.system(size: 11)).foregroundColor(theme.tx3)
+                cardLabel(report.planTitle)
+            }
+            .padding(.bottom, 7)
+            ForEach(Array(report.planList.enumerated()), id: \.offset) { _, item in
+                VStack(alignment: .leading, spacing: 0) {
+                    cardHairline
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(item.title).font(.system(size: 12.5)).foregroundColor(theme.tx2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("est. \(item.estimateLabel)")
+                                .font(.system(size: 11)).monospacedDigit().foregroundColor(theme.tx3)
+                        }
+                        if !item.details.isEmpty { rowDetails(item.details) }
+                    }
+                    .padding(.vertical, 7)
+                }
+            }
+        }
+    }
+
+    private var textCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeOut(duration: 0.15)) { reportTextOpen.toggle() }
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.system(size: 11)).foregroundColor(theme.tx3)
+                    cardLabel("TEXTO PARA ENVIAR")
+                    Spacer(minLength: 0)
+                    Text(reportTextOpen ? "ocultar" : "mostrar")
+                        .font(.system(size: 11)).foregroundColor(theme.tx3)
+                    Text("▾").font(.system(size: 9)).foregroundColor(theme.tx3)
+                        .rotationEffect(.degrees(reportTextOpen ? 180 : 0))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if reportTextOpen {
+                cardHairline
+                Text(report.text)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .foregroundColor(theme.tx2)
+                    .lineSpacing(4)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(theme.selection))
     }
 
     // MARK: Footer

@@ -50,7 +50,8 @@ final class ReportBuilderTests: XCTestCase {
         XCTAssertFalse(report.isEmpty)
         XCTAssertEqual(report.doneCount, 1)
         XCTAssertEqual(report.doneTasks.first?.title, "Tarefa de ontem")
-        XCTAssertEqual(report.planTitle, "◻ PLANEJADO PARA O DIA SEGUINTE")
+        XCTAssertEqual(report.doneTasks.first?.width, 100)
+        XCTAssertEqual(report.planTitle, "PLANEJADO PARA O DIA SEGUINTE")
         // Today's live tasks must not leak into a past day.
         XCTAssertEqual(report.blockedCount, 0)
     }

@@ -7,27 +7,26 @@ import Foundation
 /// resolves the color, keeping this type free of AppKit/SwiftUI.
 public enum ReportBuilder {
 
-    public struct BarRow: Equatable, Sendable {
-        public let title: String
-        public let project: String
-        public let label: String
-        /// Width percentage 3…100.
-        public let width: Int
-    }
-
     public struct DoneLine: Equatable, Sendable {
         public let title: String
         public let secondsLabel: String
+        /// Project name (UI resolves the bar color).
+        public let project: String
+        /// Bar width percentage (2…100), relative to the longest task that day.
+        public let width: Int
+        public let details: String
     }
 
     public struct BlockedLine: Equatable, Sendable {
         public let title: String
         public let reason: String
+        public let details: String
     }
 
     public struct PlanLine: Equatable, Sendable {
         public let title: String
         public let estimateLabel: String
+        public let details: String
     }
 
     public struct Report: Equatable, Sendable {
@@ -46,19 +45,20 @@ public enum ReportBuilder {
         /// Total focus label, e.g. "3h 12m".
         public let focusLabel: String
 
-        public let bars: [BarRow]
         public let doneTasks: [DoneLine]
         public let blockedTasks: [BlockedLine]
         public let planList: [PlanLine]
 
         /// Card label under the plan stat ("Para amanhã" / "Planejadas").
         public let planCardLabel: String
-        /// Section title ("◻ PLANO DE AMANHÃ" / "◻ PLANEJADO PARA O DIA SEGUINTE").
+        /// Section title ("PLANO DE AMANHÃ" / "PLANEJADO PARA O DIA SEGUINTE").
         public let planTitle: String
 
-        /// The active task title/label, only present for today ("▶ EM ANDAMENTO").
+        /// The active task, only present for today ("EM ANDAMENTO").
         public let currentTitle: String?
         public let currentSecondsLabel: String?
+        public let currentEstimateLabel: String?
+        public let currentDetails: String?
 
         /// The full plain-text summary ready to copy to the manager.
         public let text: String
@@ -89,89 +89,78 @@ public enum ReportBuilder {
         var subtitle = "Gerado às \(clockTime) · pronto para enviar ao gestor"
         var isEmpty = false
         var planCardLabel = "Para amanhã"
-        var planTitle = "◻ PLANO DE AMANHÃ"
+        var planTitle = "PLANO DE AMANHÃ"
 
-        var rDone: [DoneLine]
-        var rBlocked: [BlockedLine]
-        var rPlan: [PlanLine]
-        var rFocusSeconds: Int
-        var rBars: [BarRow]
+        // The tasks that were completed this report's day (drives the "Concluídas"
+        // card and its per-task bars) plus the blocked/plan rows.
+        var doneSource: [TaskItem]
+        var blockedRows: [BlockedLine]
+        var planRows: [PlanLine]
+        var focus: Int
 
         if isToday {
-            rDone = doneTasks.map { DoneLine(title: $0.title, secondsLabel: TimeFormat.duration($0.seconds)) }
-            rBlocked = blockedTasks.map { BlockedLine(title: $0.title, reason: $0.reason ?? "") }
-            rPlan = nextTasks.map { PlanLine(title: $0.title, estimateLabel: TimeFormat.minutes($0.estimate)) }
-                + blockedTasks.map { PlanLine(title: $0.title + " (desbloquear)", estimateLabel: TimeFormat.minutes($0.estimate)) }
-            rFocusSeconds = focusSeconds
-            rBars = todayBars(from: tasks)
+            doneSource = doneTasks
+            blockedRows = blockedTasks.map { BlockedLine(title: $0.title, reason: $0.reason ?? "", details: $0.details) }
+            planRows = nextTasks.map { PlanLine(title: $0.title, estimateLabel: TimeFormat.minutes($0.estimate), details: $0.details) }
+                + blockedTasks.map { PlanLine(title: $0.title + " (desbloquear)", estimateLabel: TimeFormat.minutes($0.estimate), details: $0.details) }
+            focus = focusSeconds
         } else {
             let target = dayDate(offset: offset, now: now)
             displayDate = target
             dateLabel = PtBrDates.long(target)
             planCardLabel = "Planejadas"
-            planTitle = "◻ PLANEJADO PARA O DIA SEGUINTE"
+            planTitle = "PLANEJADO PARA O DIA SEGUINTE"
             subtitle = "Histórico · " + (offset == 1 ? "ontem" : "\(offset) dias atrás")
 
-            // Real history: tasks completed on that calendar day.
+            // Real history: tasks completed on that calendar day. Blocked/plan are
+            // ephemeral states with no per-day snapshot.
             let calendar = PtBrDates.calendar
-            let doneThatDay = tasks.filter { task in
+            doneSource = tasks.filter { task in
                 guard task.state == .done, let doneAt = task.doneAt else { return false }
                 return calendar.isDate(doneAt, inSameDayAs: target)
             }
-
-            // Blocked/plan are ephemeral states with no per-day snapshot, so past
-            // days only carry what was actually completed.
-            rBlocked = []
-            rPlan = []
-            rDone = doneThatDay.map { DoneLine(title: $0.title, secondsLabel: TimeFormat.duration($0.seconds)) }
-            rFocusSeconds = doneThatDay.reduce(0) { $0 + $1.seconds }
-            let maxSeconds = max(1, doneThatDay.map { $0.seconds }.max() ?? 1)
-            rBars = doneThatDay
-                .sorted { $0.seconds > $1.seconds }
-                .map { BarRow(title: $0.title, project: $0.project,
-                              label: TimeFormat.duration($0.seconds),
-                              width: barWidth($0.seconds, max: maxSeconds)) }
-
-            if doneThatDay.isEmpty {
-                isEmpty = true
-            }
+            blockedRows = []
+            planRows = []
+            focus = doneSource.reduce(0) { $0 + $1.seconds }
+            if doneSource.isEmpty { isEmpty = true }
         }
+
+        // Done rows, sorted by time spent, each carrying a relative bar width.
+        let maxDoneSeconds = max(1, doneSource.map { $0.seconds }.max() ?? 1)
+        let doneRows = doneSource
+            .sorted { $0.seconds > $1.seconds }
+            .map { task in
+                DoneLine(
+                    title: task.title,
+                    secondsLabel: TimeFormat.duration(task.seconds),
+                    project: task.project,
+                    width: max(2, Int((Double(task.seconds) / Double(maxDoneSeconds) * 100).rounded())),
+                    details: task.details
+                )
+            }
 
         let text = buildText(
             dateLabel: dateLabel, isEmpty: isEmpty, isToday: isToday,
-            focusSeconds: rFocusSeconds, done: rDone, blocked: rBlocked, plan: rPlan,
+            focusSeconds: focus, done: doneRows, blocked: blockedRows, plan: planRows,
             current: current
         )
 
         return Report(
             date: displayDate, dateLabel: dateLabel, subtitle: subtitle,
             isEmpty: isEmpty, isToday: isToday,
-            doneCount: rDone.count, blockedCount: rBlocked.count, planCount: rPlan.count,
-            focusLabel: TimeFormat.duration(rFocusSeconds),
-            bars: rBars, doneTasks: rDone, blockedTasks: rBlocked, planList: rPlan,
+            doneCount: doneRows.count, blockedCount: blockedRows.count, planCount: planRows.count,
+            focusLabel: TimeFormat.duration(focus),
+            doneTasks: doneRows, blockedTasks: blockedRows, planList: planRows,
             planCardLabel: planCardLabel, planTitle: planTitle,
             currentTitle: isToday ? current?.title : nil,
             currentSecondsLabel: isToday ? current.map { TimeFormat.duration($0.seconds) } : nil,
+            currentEstimateLabel: isToday ? current.map { TimeFormat.minutes($0.estimate) } : nil,
+            currentDetails: isToday ? current?.details : nil,
             text: text
         )
     }
 
     // MARK: - Helpers
-
-    /// Bars for today: tasks with > 30s, sorted desc, top 6 (ported from `withSec`).
-    private static func todayBars(from tasks: [TaskItem]) -> [BarRow] {
-        let withSeconds = tasks.filter { $0.seconds > 30 }.sorted { $0.seconds > $1.seconds }.prefix(6)
-        let maxSeconds = withSeconds.first?.seconds ?? 1
-        return withSeconds.map { task in
-            BarRow(title: task.title, project: task.project,
-                   label: TimeFormat.duration(task.seconds),
-                   width: barWidth(task.seconds, max: maxSeconds))
-        }
-    }
-
-    private static func barWidth(_ seconds: Int, max maxSeconds: Int) -> Int {
-        max(3, Int((Double(seconds) / Double(maxSeconds) * 100).rounded()))
-    }
 
     /// Noon on the day `offset` days before `now` — the bucket used to match
     /// completions by `doneAt`.
