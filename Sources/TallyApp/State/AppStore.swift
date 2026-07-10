@@ -43,7 +43,6 @@ final class AppStore: NSObject, ObservableObject {
     @Published var transparency: Double = 40 {
         didSet { UserDefaults.standard.set(transparency, forKey: Keys.transparency) }
     }
-    private(set) var widgetPosition: CGPoint?
 
     // MARK: Ephemeral UI state
 
@@ -62,12 +61,10 @@ final class AppStore: NSObject, ObservableObject {
     /// New-project modal fields (`npName`/`npColor`).
     @Published var newProjectName = ""
     @Published var newProjectColor = "#5AC8FA"
-    /// Whether the floating widget panel is currently on screen. Persisted so the
-    /// close (×) button keeps it hidden across launches; drives the menu-bar
-    /// "Ocultar/Mostrar" label.
-    @Published var widgetVisible = true {
-        didSet { UserDefaults.standard.set(widgetVisible, forKey: Keys.widgetVisible) }
-    }
+    /// Whether the floating widget panel is currently on screen. Not persisted:
+    /// the widget always appears (centered) on launch, and this only tracks the
+    /// in-session close (×) / show state, driving the menu-bar "Ocultar/Mostrar" label.
+    @Published var widgetVisible = true
 
     // MARK: Window callbacks (wired by PanelController)
 
@@ -85,9 +82,6 @@ final class AppStore: NSObject, ObservableObject {
         static let theme = "tally.themeMode"
         static let accent = "tally.accentHex"
         static let transparency = "tally.transparency"
-        static let posX = "tally.widget.x"
-        static let posY = "tally.widget.y"
-        static let widgetVisible = "tally.widget.visible"
     }
 
     // MARK: Init
@@ -109,13 +103,6 @@ final class AppStore: NSObject, ObservableObject {
         }
         if let value = defaults.object(forKey: Keys.transparency) as? Double {
             transparency = value
-        }
-        if let x = defaults.object(forKey: Keys.posX) as? Double,
-           let y = defaults.object(forKey: Keys.posY) as? Double {
-            widgetPosition = CGPoint(x: x, y: y)
-        }
-        if let visible = defaults.object(forKey: Keys.widgetVisible) as? Bool {
-            widgetVisible = visible
         }
 
         // Domain — restore from disk, or start empty (no sample data). Restored
@@ -355,12 +342,6 @@ final class AppStore: NSObject, ObservableObject {
 
     func setAccent(_ hex: String) { accentHex = hex }
     func setTransparency(_ value: Double) { transparency = value }
-
-    func saveWidgetPosition(_ point: CGPoint) {
-        widgetPosition = point
-        UserDefaults.standard.set(Double(point.x), forKey: Keys.posX)
-        UserDefaults.standard.set(Double(point.y), forKey: Keys.posY)
-    }
 
     // MARK: Timer
 
