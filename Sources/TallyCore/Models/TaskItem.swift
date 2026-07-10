@@ -10,6 +10,8 @@ import Foundation
 public struct TaskItem: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
     public var title: String
+    /// Optional free-text description shown under the title.
+    public var details: String
     /// Project name (canonical). Color is resolved in the UI layer.
     public var project: String
     public var priority: Priority
@@ -30,6 +32,7 @@ public struct TaskItem: Identifiable, Codable, Equatable, Sendable {
     public init(
         id: UUID = UUID(),
         title: String,
+        details: String = "",
         project: String = "Geral",
         priority: Priority = .media,
         estimate: Int = 30,
@@ -43,6 +46,7 @@ public struct TaskItem: Identifiable, Codable, Equatable, Sendable {
     ) {
         self.id = id
         self.title = title
+        self.details = details
         self.project = project
         self.priority = priority
         self.estimate = estimate

@@ -11,14 +11,23 @@ struct NextTaskRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            StartButton(theme: theme, size: 15) { store.start(task.id) }
+            StartButton(theme: theme, size: 17) { store.start(task.id) }
 
-            Text(task.title)
-                .font(.system(size: 12.5))
-                .foregroundColor(theme.tx1)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(task.title)
+                    .font(.system(size: 12.5))
+                    .foregroundColor(theme.tx1)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if !task.details.isEmpty {
+                    Text(task.details)
+                        .font(.system(size: 10.5))
+                        .foregroundColor(theme.tx3)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Dot(color: store.color(for: task.project), size: 6)
 
@@ -27,7 +36,7 @@ struct NextTaskRow: View {
                 .monospacedDigit()
                 .foregroundColor(theme.tx3)
 
-            FlagButton(theme: theme, baseOpacity: 0.25, fontSize: 11) { store.openBlock(task.id) }
+            FlagButton(theme: theme, size: 22, glyphSize: 12, baseOpacity: 0.4) { store.openBlock(task.id) }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)

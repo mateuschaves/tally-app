@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Circular "complete task" button. Empty ring by default; on hover it fills
-/// green and reveals the check (`color: transparent` → green on hover).
+/// Circular "complete task" button (17px). Empty ring by default; on hover it
+/// fills green and reveals the check (`color: transparent` → green on hover).
 struct CompleteButton: View {
     let theme: Theme
-    var size: CGFloat = 22
+    var size: CGFloat = 17
     let action: () -> Void
     @State private var hover = false
 
@@ -12,10 +12,10 @@ struct CompleteButton: View {
         Button(action: action) {
             ZStack {
                 Circle().fill(hover ? theme.green.opacity(0.14) : .clear)
-                Circle().strokeBorder(hover ? theme.green : theme.tx3, lineWidth: 1.5)
+                Circle().strokeBorder(hover ? theme.green : theme.tx3, lineWidth: 1.3)
                 CheckShape()
                     .stroke(hover ? theme.green : .clear,
-                            style: StrokeStyle(lineWidth: max(1.6, size * 0.10), lineCap: .round, lineJoin: .round))
+                            style: StrokeStyle(lineWidth: max(1.5, size * 0.10), lineCap: .round, lineJoin: .round))
                     .frame(width: size * 0.5, height: size * 0.5)
             }
             .frame(width: size, height: size)
@@ -27,25 +27,26 @@ struct CompleteButton: View {
     }
 }
 
-/// Small "start now" ring. On hover the ring turns accent and gains a soft halo
-/// (`box-shadow: 0 0 0 3px rgba(accent, .2)`).
+/// Small "start now" ring (17px). Empty by default; on hover the ring turns
+/// accent and reveals a play triangle over a soft accent fill.
 struct StartButton: View {
     let theme: Theme
-    var size: CGFloat = 15
+    var size: CGFloat = 17
     let action: () -> Void
     @State private var hover = false
 
     var body: some View {
         Button(action: action) {
-            Circle()
-                .strokeBorder(hover ? theme.accent : theme.tx3, lineWidth: 1.5)
-                .frame(width: size, height: size)
-                .background(
-                    Circle()
-                        .fill(theme.accent.opacity(hover ? 0.2 : 0))
-                        .frame(width: size + 6, height: size + 6)
-                )
-                .contentShape(Circle())
+            ZStack {
+                Circle().fill(hover ? theme.accent.opacity(0.16) : .clear)
+                Circle().strokeBorder(hover ? theme.accent : theme.tx3, lineWidth: 1.3)
+                PlayTriangle()
+                    .fill(hover ? theme.accent : .clear)
+                    .frame(width: size * 0.42, height: size * 0.42)
+                    .offset(x: size * 0.03)
+            }
+            .frame(width: size, height: size)
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
@@ -53,21 +54,25 @@ struct StartButton: View {
     }
 }
 
-/// The "⚑ block" affordance. Dim by default, red on hover.
+/// The circular "⚑ block" affordance. Dim by default, red (with a soft red fill)
+/// on hover.
 struct FlagButton: View {
     let theme: Theme
+    var size: CGFloat = 22
+    var glyphSize: CGFloat = 12
     var baseOpacity: Double = 0.4
-    var fontSize: CGFloat = 12
     let action: () -> Void
     @State private var hover = false
 
     var body: some View {
         Button(action: action) {
             Text("⚑")
-                .font(.system(size: fontSize))
+                .font(.system(size: glyphSize))
                 .foregroundColor(hover ? theme.red : theme.tx2)
                 .opacity(hover ? 1 : baseOpacity)
-                .contentShape(Rectangle())
+                .frame(width: size, height: size)
+                .background(Circle().fill(hover ? theme.red.opacity(0.12) : .clear))
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
@@ -75,23 +80,63 @@ struct FlagButton: View {
     }
 }
 
-/// The "↺ resume" affordance for blocked tasks.
+/// The circular "↺ resume" affordance for blocked tasks (24px).
 struct UnblockButton: View {
     let theme: Theme
-    var fontSize: CGFloat = 13
+    var size: CGFloat = 24
+    var glyphSize: CGFloat = 14
     let action: () -> Void
     @State private var hover = false
 
     var body: some View {
         Button(action: action) {
             Text("↺")
-                .font(.system(size: fontSize))
+                .font(.system(size: glyphSize))
                 .foregroundColor(hover ? theme.accent : theme.tx3)
-                .contentShape(Rectangle())
+                .frame(width: size, height: size)
+                .background(Circle().fill(hover ? theme.selection : .clear))
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
         .help("Retomar tarefa")
+    }
+}
+
+/// The macOS-style traffic-light close button (11px red) that hides the widget.
+/// The "×" appears on hover.
+struct WidgetCloseButton: View {
+    let theme: Theme
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle().fill(Color(hex: "#ff736a"))
+                CloseXShape()
+                    .stroke(hover ? Color.black.opacity(0.45) : .clear,
+                            style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                    .frame(width: 6, height: 6)
+            }
+            .frame(width: 11, height: 11)
+            .overlay(Circle().strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5))
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .help("Fechar")
+    }
+}
+
+/// A decorative (inert) traffic-light dot next to the close button.
+struct TrafficDot: View {
+    let theme: Theme
+    var body: some View {
+        Circle()
+            .fill(theme.selection)
+            .frame(width: 11, height: 11)
+            .overlay(Circle().strokeBorder(theme.line, lineWidth: 0.5))
     }
 }
 

@@ -34,7 +34,11 @@ rápida por **⌘K** e um **Resumo do dia** pronto para copiar ao gestor.
 - **A SEGUIR**: fila com "começar agora" e "impedir".
 - **IMPEDIDAS**: motivo do impedimento + "retomar".
 - **Concluir** tarefa (promove a próxima da fila automaticamente).
-- **Nova tarefa**: formulário detalhado (projeto / prioridade / estimativa) e **adição rápida**.
+- **Nova tarefa**: formulário detalhado (**descrição** / projeto / prioridade / estimativa) e **adição rápida**.
+- **Descrição** opcional nas tarefas (exibida no cartão, no form e no ⌘K).
+- **Cadastrar projetos**: botão "+ Novo" no form abre um modal (nome + paleta de cores).
+- **Estimativas** em horas: 1h / 2h / 4h / 8h / 16h.
+- **Fechar** o widget pelo botão vermelho (traffic light) do cabeçalho — o estado é lembrado.
 - **⌘K** (global): captura estilo Spotlight com parser de linguagem natural
   (`#projeto`, `!alta/!média/!baixa`, `30m`/`2h`) e chips de preview.
 - **Diálogo de impedimento** com motivos rápidos.

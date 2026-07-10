@@ -14,6 +14,7 @@ struct OverlayRootView: View {
         case .quickEntry: return 0.16
         case .block: return 0.20
         case .report: return 0.26
+        case .newProject: return 0.28
         }
     }
 
@@ -23,7 +24,12 @@ struct OverlayRootView: View {
                 Color.black.opacity(dimOpacity)
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
-                    .onTapGesture { store.closeAll() }
+                    .onTapGesture {
+                        // Tapping outside the "Novo projeto" modal only closes it,
+                        // leaving the add form underneath open.
+                        if store.overlay == .newProject { store.closeNewProject() }
+                        else { store.closeAll() }
+                    }
 
                 content
                     .transition(.opacity)
@@ -53,6 +59,8 @@ struct OverlayRootView: View {
             BlockDialogView()
         case .report:
             DayReportView()
+        case .newProject:
+            NewProjectView()
         }
     }
 }

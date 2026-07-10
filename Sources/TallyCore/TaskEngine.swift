@@ -131,9 +131,10 @@ public enum TaskEngine {
     public static func add(
         _ tasks: [TaskItem],
         title: String,
+        details: String = "",
         project: String = "Geral",
         priority: Priority = .media,
-        estimate: Int = 30,
+        estimate: Int = 60,
         now: Date
     ) -> [TaskItem] {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -141,6 +142,7 @@ public enum TaskEngine {
         let hasActive = tasks.contains { $0.state == .now }
         let newTask = TaskItem(
             title: trimmed,
+            details: details.trimmingCharacters(in: .whitespacesAndNewlines),
             project: project,
             priority: priority,
             estimate: estimate,

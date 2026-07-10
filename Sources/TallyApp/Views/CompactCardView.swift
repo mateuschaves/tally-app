@@ -58,6 +58,11 @@ struct CompactCardView: View {
 
     private var header: some View {
         HStack(spacing: 7) {
+            HStack(spacing: 6) {
+                WidgetCloseButton(theme: theme) { store.onHideWidget?() }
+                TrafficDot(theme: theme)
+                TrafficDot(theme: theme)
+            }
             PulseDot(color: theme.accent, size: 6)
             SectionLabel(text: "AGORA", color: theme.tx3)
             Spacer(minLength: 0)
