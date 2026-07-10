@@ -42,15 +42,20 @@ final class ReportBuilderTests: XCTestCase {
         let cal = PtBrDates.calendar
         let wednesday = cal.date(from: DateComponents(year: 2026, month: 7, day: 15, hour: 10))!
         let yesterday = cal.date(from: DateComponents(year: 2026, month: 7, day: 14, hour: 15))!
-        var done = TaskItem(title: "Tarefa de ontem", project: "Geral", seconds: 1800, state: .done)
+        var done = TaskItem(title: "Tarefa de ontem", details: "Revisão final",
+                            project: "Backend", seconds: 1800, state: .done)
         done.doneAt = yesterday
 
         let report = ReportBuilder.build(tasks: [done], offset: 1, now: wednesday)
 
         XCTAssertFalse(report.isEmpty)
         XCTAssertEqual(report.doneCount, 1)
-        XCTAssertEqual(report.doneTasks.first?.title, "Tarefa de ontem")
-        XCTAssertEqual(report.planTitle, "◻ PLANEJADO PARA O DIA SEGUINTE")
+        let row = report.doneTasks.first
+        XCTAssertEqual(row?.title, "Tarefa de ontem")
+        XCTAssertEqual(row?.width, 100) // only task → full bar
+        XCTAssertEqual(row?.project, "Backend")
+        XCTAssertEqual(row?.details, "Revisão final")
+        XCTAssertEqual(report.planTitle, "PLANEJADO PARA O DIA SEGUINTE")
         // Today's live tasks must not leak into a past day.
         XCTAssertEqual(report.blockedCount, 0)
     }

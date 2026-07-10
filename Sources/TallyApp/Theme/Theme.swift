@@ -72,6 +72,10 @@ struct Theme: Equatable {
     let red = Color(hex: "#FF453A")
     let blockRed = Color(hex: "#E5484D")
 
+    /// Neutral progress-bar track (`rgba(128,128,128,0.16)`), theme-independent
+    /// by design so a bar reads the same in light and dark.
+    var barTrack: Color { Color(.sRGB, red: 0.5, green: 0.5, blue: 0.5, opacity: 0.16) }
+
     // MARK: Shadow (approximation of --shd)
 
     var shadowColor: Color { isDark ? black(0.5) : black(0.2) }
