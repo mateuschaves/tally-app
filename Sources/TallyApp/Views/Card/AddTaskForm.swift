@@ -167,14 +167,16 @@ struct AddTaskForm: View {
             store.form.estimate = minutes
         } label: {
             Text(TimeFormat.minutes(minutes))
-                .font(.system(size: 11.5))
+                .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundColor(theme.tx1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
+                .frame(minWidth: 40)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
                 .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(selected ? theme.selection : .clear))
                 .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .strokeBorder(selected ? theme.accent : theme.line, lineWidth: 1))
+                .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
     }

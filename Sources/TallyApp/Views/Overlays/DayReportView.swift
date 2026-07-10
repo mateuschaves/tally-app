@@ -11,21 +11,35 @@ struct DayReportView: View {
     private var isToday: Bool { store.reportOffset == 0 }
     private var atOldest: Bool { store.reportOffset >= 7 }
 
+    /// Measured height of the scrollable content, so the card hugs its content
+    /// (short reports stay short) instead of stretching to the full screen.
+    @State private var contentHeight: CGFloat = 300
+
     var body: some View {
         GeometryReader { geo in
-            box(maxHeight: geo.size.height - 90)
+            // Cap the scroll area well below the full screen height so the card
+            // opens compact; it scrolls when the content is longer.
+            box(scrollCap: min(geo.size.height - 200, 420))
                 .frame(width: 660)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
 
-    private func box(maxHeight: CGFloat) -> some View {
+    private func box(scrollCap: CGFloat) -> some View {
         VStack(spacing: 0) {
             titleBar
-            ScrollView { content.padding(.horizontal, 22).padding(.vertical, 20) }
+            ScrollView {
+                content
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 20)
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: ReportContentHeightKey.self, value: proxy.size.height)
+                    })
+            }
+            .frame(height: min(contentHeight, max(140, scrollCap)))
             footer
         }
-        .frame(maxHeight: max(300, maxHeight))
+        .onPreferenceChange(ReportContentHeightKey.self) { contentHeight = $0 }
         .glassCard(theme, radius: 15, tint: theme.popover(0.96))
         .overlay(navigationKeys)
     }
@@ -309,6 +323,14 @@ struct DayReportView: View {
         .opacity(0)
         .frame(width: 0, height: 0)
         .accessibilityHidden(true)
+    }
+}
+
+/// Carries the measured height of the report's scrollable content up to the box.
+private struct ReportContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
