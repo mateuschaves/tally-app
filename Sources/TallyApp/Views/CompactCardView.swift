@@ -5,6 +5,7 @@ import TallyCore
 /// The "Cartão compacto" widget — full recreation of the prototype's Variante 1.
 struct CompactCardView: View {
     @EnvironmentObject private var store: AppStore
+    @Environment(\.openSettings) private var openSettings
 
     private var theme: Theme { store.theme }
 
@@ -46,11 +47,20 @@ struct CompactCardView: View {
         // Right-click to close/hide the widget (no visual change to the card).
         .contextMenu {
             Button("Nova tarefa") { store.openQuickEntry() }
+            Button("Novo projeto…") { store.openNewProject() }
             Button("Resumo do dia") { store.openReport() }
             Divider()
             Button("Ocultar widget") { store.onHideWidget?() }
+            Button("Centralizar widget") { store.onCenterWidget?() }
+            Button("Preferências…") { store.requestPreferences() }
             Divider()
             Button("Sair do Tally") { NSApplication.shared.terminate(nil) }
+        }
+        // Bridge for the ⌘, hotkey and the menus: this view is always mounted,
+        // so it can open the Settings scene on demand.
+        .onChange(of: store.settingsRequestID) { _, _ in
+            NSApp.activate(ignoringOtherApps: true)
+            openSettings()
         }
     }
 

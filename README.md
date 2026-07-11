@@ -38,14 +38,18 @@ rápida por **⌘K** e um **Resumo do dia** pronto para copiar ao gestor.
 - **Descrição** opcional nas tarefas (exibida no cartão, no form e no ⌘K).
 - **Cadastrar projetos**: botão "+ Novo" no form abre um modal (nome + paleta de cores).
 - **Estimativas** em horas: 1h / 2h / 4h / 8h / 16h.
-- **Fechar** o widget pelo botão vermelho (traffic light) do cabeçalho — o estado é lembrado.
+- **Fechar** o widget pelo botão vermelho (traffic light) do cabeçalho — ao abrir o app,
+  ele sempre volta **centralizado** na tela.
+- **Apagar tarefa** pela lixeira da fila, com diálogo de confirmação (⏎ confirma / esc cancela).
 - **⌘K** (global): captura estilo Spotlight com parser de linguagem natural
   (`#projeto`, `!alta/!média/!baixa`, `30m`/`2h`) e chips de preview.
+- **Atalhos de teclado configuráveis** (Preferências → Atalhos): regravar qualquer combinação,
+  ativar/desativar, buscar e **Restaurar padrões** — os globais valem no sistema todo (Carbon).
 - **Diálogo de impedimento** com motivos rápidos.
 - **Resumo do dia**: estatísticas, barras de tempo por tarefa, listas e **texto para copiar**,
   navegável ←/→ entre dias (histórico real, baseado nas conclusões).
-- **Arrastar** o widget pelo cabeçalho (posição persistida).
-- **Tema** claro/escuro, **acento** e **transparência** (em Preferências).
+- **Arrastar** o widget pelo cabeçalho; **Centralizar widget** pelo menu.
+- **Tema** escuro/claro/**Sistema**, **7 cores de acento** e **transparência** (em Preferências).
 - Ícone na **barra de menus** com as ações principais.
 - **Ocultar/mostrar** o widget (menu da barra ou clique direito no cartão); "Sair" encerra o app.
 - **Persistência local** em SQLite (tarefas, projetos e preferências).
@@ -53,14 +57,22 @@ rápida por **⌘K** e um **Resumo do dia** pronto para copiar ao gestor.
 
 ## Atalhos de teclado
 
+Todos os atalhos abaixo são os **padrões** — dá para regravar, ativar/desativar e
+restaurar em **Preferências → Atalhos** (os com modificador valem no sistema todo):
+
 | Atalho | Ação |
 | --- | --- |
 | **⌘K** (global) | Abrir captura rápida de tarefa |
-| **⏎** | Adicionar (nos campos de texto) |
+| **⇧⌘D** (global) | Concluir tarefa atual |
+| **⇧⌘B** (global) | Marcar impedimento |
+| **⌘.** (global) | Pausar / retomar cronômetro |
+| **⌥⌘T** (global) | Mostrar / ocultar o widget |
+| **⌘R** (global) | Abrir Resumo do dia |
+| **⌘,** (global) | Abrir Preferências |
+| **⏎** | Adicionar (nos campos de texto) · confirmar exclusão |
 | **⌘⏎** | Confirmar impedimento (no diálogo) |
-| **Esc** | Fechar overlay (captura / impedimento / resumo) |
+| **Esc** | Fechar overlay (captura / impedimento / resumo / exclusão) |
 | **← / →** | Navegar entre dias no Resumo do dia |
-| **⌘,** | Preferências (pela barra de menus) |
 | **⌘Q** | Sair do Tally |
 
 ## Arquitetura
@@ -113,7 +125,7 @@ tally-app/
 │   │   └── PtBrDates.swift       datas/horas em pt-BR
 │   └── TallyApp/                 app macOS (Xcode)
 │       ├── App/                  TallyApp, AppDelegate, FloatingPanel, OverlayWindow,
-│       │                         PanelController, GlobalHotKey
+│       │                         PanelController, HotKeyCenter
 │       ├── State/                AppStore, ProjectInfo
 │       ├── Persistence/          TaskRepository (protocolo), SQLiteTaskRepository
 │       ├── Theme/                Theme (tokens), VisualEffectBackground

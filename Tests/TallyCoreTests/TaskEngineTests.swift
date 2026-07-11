@@ -133,4 +133,26 @@ final class TaskEngineTests: XCTestCase {
         let ticked = TaskEngine.tick(tasks, paused: true, now: now)
         XCTAssertEqual(ticked.first { $0.id == uuid(1) }?.seconds, 5)
     }
+
+    // MARK: - Delete
+
+    func testDeleteRemovesTask() {
+        let tasks = [task(1, .now), task(2, .next)]
+        let result = TaskEngine.delete(tasks, id: uuid(2), now: now)
+        XCTAssertEqual(result.count, 1)
+        XCTAssertNil(result.first { $0.id == uuid(2) })
+    }
+
+    func testDeleteActivePromotesNext() {
+        let tasks = [task(1, .now), task(2, .next), task(3, .next)]
+        let result = TaskEngine.delete(tasks, id: uuid(1), now: now)
+        XCTAssertEqual(state(result, 2), .now)
+        XCTAssertEqual(state(result, 3), .next)
+    }
+
+    func testDeleteUnknownIdIsNoop() {
+        let tasks = [task(1, .now)]
+        let result = TaskEngine.delete(tasks, id: uuid(9), now: now)
+        XCTAssertEqual(result, tasks)
+    }
 }

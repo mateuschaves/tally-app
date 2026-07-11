@@ -61,6 +61,8 @@ struct Theme: Equatable {
 
     /// Widget card tint: `rgb(var(--mat-rgb) / var(--a))`.
     var material: Color { rgb(matRGB, materialAlpha) }
+    /// Material tint at an explicit alpha: `rgb(var(--mat-rgb) / a)`.
+    func material(_ a: Double) -> Color { rgb(matRGB, a) }
     /// Popover/overlay tint at a given alpha: `rgb(var(--pop-rgb) / a)`.
     func popover(_ a: Double) -> Color { rgb(popRGB, a) }
     /// Pure-glass card tint (Variante Vidro puro uses `--a * 0.35`); kept for reuse.

@@ -80,6 +80,64 @@ struct FlagButton: View {
     }
 }
 
+/// The trash-can outline used by the delete affordances (viewBox 12×13 in the
+/// prototype: lid, handle, body and two inner lines).
+struct TrashShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width / 12
+        let h = rect.height / 13
+        var p = Path()
+        // Lid.
+        p.move(to: CGPoint(x: 1.2 * w, y: 3.4 * h))
+        p.addLine(to: CGPoint(x: 10.8 * w, y: 3.4 * h))
+        // Handle.
+        p.move(to: CGPoint(x: 4.4 * w, y: 1.6 * h))
+        p.addLine(to: CGPoint(x: 7.6 * w, y: 1.6 * h))
+        // Body.
+        p.move(to: CGPoint(x: 2.4 * w, y: 3.4 * h))
+        p.addLine(to: CGPoint(x: 2.9 * w, y: 10.8 * h))
+        p.addQuadCurve(to: CGPoint(x: 4.07 * w, y: 11.9 * h),
+                       control: CGPoint(x: 3.0 * w, y: 11.9 * h))
+        p.addLine(to: CGPoint(x: 7.93 * w, y: 11.9 * h))
+        p.addQuadCurve(to: CGPoint(x: 9.1 * w, y: 10.8 * h),
+                       control: CGPoint(x: 9.0 * w, y: 11.9 * h))
+        p.addLine(to: CGPoint(x: 9.6 * w, y: 3.4 * h))
+        // Inner lines.
+        p.move(to: CGPoint(x: 4.7 * w, y: 5.6 * h))
+        p.addLine(to: CGPoint(x: 4.7 * w, y: 9.2 * h))
+        p.move(to: CGPoint(x: 7.3 * w, y: 5.6 * h))
+        p.addLine(to: CGPoint(x: 7.3 * w, y: 9.2 * h))
+        return p
+    }
+}
+
+/// The circular trash affordance on queue rows. Dim by default, red (with a
+/// soft red fill) on hover — same treatment as `FlagButton`.
+struct TrashButton: View {
+    let theme: Theme
+    var size: CGFloat = 22
+    var glyphSize: CGFloat = 11
+    var baseOpacity: Double = 0.4
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            TrashShape()
+                .stroke(hover ? theme.red : theme.tx2,
+                        style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
+                .opacity(hover ? 1 : baseOpacity)
+                .frame(width: glyphSize, height: glyphSize + 1)
+                .frame(width: size, height: size)
+                .background(Circle().fill(hover ? theme.red.opacity(0.1) : .clear))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .help("Apagar tarefa")
+    }
+}
+
 /// The circular "↺ resume" affordance for blocked tasks (24px).
 struct UnblockButton: View {
     let theme: Theme

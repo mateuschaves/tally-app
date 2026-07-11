@@ -154,6 +154,13 @@ public enum TaskEngine {
         return tasks + [newTask]
     }
 
+    /// Remove a task entirely (it leaves the queue and the day report), then
+    /// normalize so deleting the active task promotes the next one. Ported from
+    /// the prototype's `confirmDel`.
+    public static func delete(_ tasks: [TaskItem], id: UUID, now: Date) -> [TaskItem] {
+        normalize(tasks.filter { $0.id != id }, now: now)
+    }
+
     /// Advance the active task's timer by one second. Ported from the 1s interval
     /// in `componentDidMount`. `paused` freezes the increment but still returns
     /// the array unchanged so callers can keep a single code path.

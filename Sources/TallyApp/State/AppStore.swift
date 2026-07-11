@@ -10,6 +10,13 @@ enum OverlayKind: Equatable {
     case block
     case report
     case newProject
+    case deleteTask
+}
+
+/// Theme selection in Preferências — `system` follows macOS, mirroring the
+/// prototype's `themeOverride: null` ("Sistema").
+enum ThemePreference: String, Codable {
+    case system, dark, light
 }
 
 /// Detailed add-form fields (`this.state.f`).
@@ -34,14 +41,25 @@ final class AppStore: NSObject, ObservableObject {
 
     // MARK: Preferences (persisted via UserDefaults)
 
-    @Published var themeMode: Theme.Mode = .dark {
-        didSet { UserDefaults.standard.set(themeMode.rawValue, forKey: Keys.theme) }
+    @Published var themePreference: ThemePreference = .system {
+        didSet { UserDefaults.standard.set(themePreference.rawValue, forKey: Keys.theme) }
     }
+    /// Tracks the macOS appearance so `.system` re-renders on theme changes.
+    @Published private(set) var systemIsDark = true
     @Published var accentHex: String = "#0A84FF" {
         didSet { UserDefaults.standard.set(accentHex, forKey: Keys.accent) }
     }
     @Published var transparency: Double = 40 {
         didSet { UserDefaults.standard.set(transparency, forKey: Keys.transparency) }
+    }
+    /// Configurable keyboard shortcuts (Preferências → Atalhos). Always the
+    /// full catalog: persisted entries only override combo/enabled.
+    @Published var shortcuts: [ShortcutSpec] = ShortcutCatalog.defaults {
+        didSet {
+            if let data = try? JSONEncoder().encode(shortcuts) {
+                UserDefaults.standard.set(data, forKey: Keys.shortcuts)
+            }
+        }
     }
 
     // MARK: Ephemeral UI state
@@ -61,6 +79,17 @@ final class AppStore: NSObject, ObservableObject {
     /// New-project modal fields (`npName`/`npColor`).
     @Published var newProjectName = ""
     @Published var newProjectColor = "#5AC8FA"
+    /// Task pending delete confirmation (`delId`).
+    @Published var deleteId: UUID?
+    /// Shortcut being re-recorded in Preferências (`recordingId`), plus the
+    /// validation message shown in the window footer (`conflictMsg`).
+    @Published var recordingId: String?
+    @Published var conflictMsg = ""
+    /// Search query of the shortcuts screen (`prefQuery`).
+    @Published var prefQuery = ""
+    /// Bumped whenever something (hotkey, menu) asks for the Settings window;
+    /// a view with `@Environment(\.openSettings)` reacts to it.
+    @Published var settingsRequestID = 0
     /// Whether the floating widget panel is currently on screen. Not persisted:
     /// the widget always appears (centered) on launch, and this only tracks the
     /// in-session close (×) / show state, driving the menu-bar "Ocultar/Mostrar" label.
@@ -71,6 +100,7 @@ final class AppStore: NSObject, ObservableObject {
     var onToggleWidget: (() -> Void)?
     var onShowWidget: (() -> Void)?
     var onHideWidget: (() -> Void)?
+    var onCenterWidget: (() -> Void)?
 
     // MARK: Dependencies
 
@@ -82,6 +112,7 @@ final class AppStore: NSObject, ObservableObject {
         static let theme = "tally.themeMode"
         static let accent = "tally.accentHex"
         static let transparency = "tally.transparency"
+        static let shortcuts = "tally.shortcuts"
     }
 
     // MARK: Init
@@ -94,9 +125,10 @@ final class AppStore: NSObject, ObservableObject {
 
         let defaults = UserDefaults.standard
 
-        // Preferences.
-        if let raw = defaults.string(forKey: Keys.theme), let mode = Theme.Mode(rawValue: raw) {
-            themeMode = mode
+        // Preferences. The theme key also accepts the pre-"Sistema" values
+        // ("dark"/"light"), which map 1:1 onto ThemePreference.
+        if let raw = defaults.string(forKey: Keys.theme), let pref = ThemePreference(rawValue: raw) {
+            themePreference = pref
         }
         if let hex = defaults.string(forKey: Keys.accent) {
             accentHex = hex
@@ -104,6 +136,17 @@ final class AppStore: NSObject, ObservableObject {
         if let value = defaults.object(forKey: Keys.transparency) as? Double {
             transparency = value
         }
+        if let data = defaults.data(forKey: Keys.shortcuts),
+           let saved = try? JSONDecoder().decode([ShortcutSpec].self, from: data) {
+            shortcuts = ShortcutCatalog.merge(saved: saved)
+        }
+
+        // Follow the macOS appearance for the "Sistema" theme.
+        systemIsDark = Self.readSystemIsDark()
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(systemThemeChanged),
+            name: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil
+        )
 
         // Domain — restore from disk, or start empty (no sample data). Restored
         // tasks are normalized so the "one active task" invariant holds even if
@@ -118,10 +161,36 @@ final class AppStore: NSObject, ObservableObject {
         startTimer()
     }
 
+    deinit {
+        DistributedNotificationCenter.default().removeObserver(self)
+    }
+
     // MARK: Theme
 
+    /// The dark/light mode actually in effect (resolves `.system`).
+    var effectiveMode: Theme.Mode {
+        switch themePreference {
+        case .dark: return .dark
+        case .light: return .light
+        case .system: return systemIsDark ? .dark : .light
+        }
+    }
+
     var theme: Theme {
-        Theme(mode: themeMode, accentHex: accentHex, transparency: transparency)
+        Theme(mode: effectiveMode, accentHex: accentHex, transparency: transparency)
+    }
+
+    nonisolated private static func readSystemIsDark() -> Bool {
+        // The global appearance preference; absent means light.
+        UserDefaults.standard.string(forKey: "AppleInterfaceStyle")?.lowercased() == "dark"
+    }
+
+    /// Distributed notifications arrive off the main thread; hop before
+    /// touching published state.
+    @objc nonisolated private func systemThemeChanged() {
+        Task { @MainActor [weak self] in
+            self?.systemIsDark = Self.readSystemIsDark()
+        }
     }
 
     // MARK: Derived task views
@@ -277,6 +346,26 @@ final class AppStore: NSObject, ObservableObject {
     func openAdd() { addOpen = true }
     func closeAdd() { addOpen = false }
 
+    // MARK: Delete task (ported from `openDel`/`confirmDel`)
+
+    func openDelete(_ id: UUID) {
+        deleteId = id
+        blockId = nil
+        overlay = .deleteTask
+    }
+
+    var deleteTask: TaskItem? {
+        deleteId.flatMap { id in tasks.first { $0.id == id } }
+    }
+
+    func confirmDelete() {
+        guard let id = deleteId else { return }
+        deleteId = nil
+        overlay = .none
+        tasks = TaskEngine.delete(tasks, id: id, now: Date())
+        persist()
+    }
+
     func openReport() {
         reportOffset = 0
         copied = false
@@ -287,6 +376,7 @@ final class AppStore: NSObject, ObservableObject {
     func closeAll() {
         overlay = .none
         blockId = nil
+        deleteId = nil
         addOpen = false
         copied = false
     }
@@ -296,8 +386,91 @@ final class AppStore: NSObject, ObservableObject {
         persist()
     }
 
-    func toggleTheme() {
-        themeMode = themeMode == .dark ? .light : .dark
+    func setThemePreference(_ pref: ThemePreference) {
+        themePreference = pref
+    }
+
+    // MARK: Shortcuts (Preferências → Atalhos)
+
+    func beginRecording(_ id: String) {
+        recordingId = id
+        conflictMsg = ""
+    }
+
+    func cancelRecording() {
+        recordingId = nil
+        conflictMsg = ""
+    }
+
+    /// Store a recorded combo on the shortcut being recorded, enforcing the
+    /// prototype's rules: needs a modifier (unless it's a special key) and must
+    /// not clash with another enabled shortcut.
+    func recordCombo(keys: [String], keyCode: UInt16?, carbonModifiers: UInt32, isSpecialKey: Bool) {
+        guard let id = recordingId else { return }
+        guard carbonModifiers != 0 || isSpecialKey else {
+            conflictMsg = "Combine uma tecla com ⌘, ⌥, ⌃ ou ⇧."
+            return
+        }
+        let combo = keys.joined(separator: "+")
+        if let clash = ShortcutCatalog.conflict(in: shortcuts, combo: combo, excluding: id) {
+            conflictMsg = "«\(clash.name)» já usa esse atalho."
+            return
+        }
+        shortcuts = shortcuts.map { spec in
+            guard spec.id == id else { return spec }
+            var out = spec
+            out.keys = keys
+            out.keyCode = keyCode
+            out.carbonModifiers = carbonModifiers
+            out.enabled = true
+            return out
+        }
+        recordingId = nil
+        conflictMsg = ""
+    }
+
+    func toggleShortcut(_ id: String) {
+        shortcuts = shortcuts.map { spec in
+            guard spec.id == id else { return spec }
+            var out = spec
+            out.enabled.toggle()
+            return out
+        }
+        if recordingId == id {
+            recordingId = nil
+            conflictMsg = ""
+        }
+    }
+
+    func restoreShortcuts() {
+        shortcuts = ShortcutCatalog.defaults
+        recordingId = nil
+        conflictMsg = ""
+    }
+
+    func shortcut(_ id: String) -> ShortcutSpec? {
+        shortcuts.first { $0.id == id }
+    }
+
+    /// Ask a view holding `@Environment(\.openSettings)` to open Preferências.
+    func requestPreferences() {
+        settingsRequestID += 1
+    }
+
+    /// Dispatch a configured shortcut, ported from the prototype's `runAction`.
+    /// (`confirmAdd` is inherently local to the capture fields, so it's a no-op.)
+    func runAction(_ id: String) {
+        switch id {
+        case "new": openQuickEntry()
+        case "report": openReport()
+        case "prefs": requestPreferences()
+        case "toggleWidget": onToggleWidget?()
+        case "complete": completeCurrent()
+        case "block": blockCurrent()
+        case "pause": togglePause()
+        case "close": closeAll()
+        default: break
+        }
     }
 
     func reportPrev() { reportOffset = min(7, reportOffset + 1) }

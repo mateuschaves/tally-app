@@ -26,6 +26,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         store.onToggleWidget = { [weak self] in self?.toggleWidget() }
         store.onShowWidget = { [weak self] in self?.showWidget() }
         store.onHideWidget = { [weak self] in self?.hideWidget() }
+        store.onCenterWidget = { [weak self] in self?.centerWidget() }
     }
 
     // MARK: Widget
@@ -85,6 +86,12 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func toggleWidget() {
         if widgetPanel.isVisible { hideWidget() } else { showWidget() }
+    }
+
+    /// Menu "Centralizar widget": bring it back on screen, centered.
+    func centerWidget() {
+        showWidget()
+        positionWidget()
     }
 
     // MARK: Overlay
