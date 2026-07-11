@@ -21,6 +21,10 @@ targets:
     dependencies:
       - package: TallyCore
         product: TallyCore
+    scheme:
+      # Gera um scheme compartilhado chamado "Tally" (usado por scripts/build-dmg.sh
+      # e por CI). Sem isto, o XcodeGen só expõe o scheme do pacote TallyCore.
+      buildImplicitDependencies: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tally.app
