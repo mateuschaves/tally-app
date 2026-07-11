@@ -6,6 +6,8 @@
 	<string>Tally</string>
 	<key>CFBundleDisplayName</key>
 	<string>Tally</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.tally.app</string>
 	<key>CFBundlePackageType</key>

@@ -37,6 +37,7 @@ struct NextTaskRow: View {
                 .foregroundColor(theme.tx3)
 
             FlagButton(theme: theme, size: 22, glyphSize: 12, baseOpacity: 0.4) { store.openBlock(task.id) }
+            TrashButton(theme: theme, size: 22, glyphSize: 11, baseOpacity: 0.4) { store.openDelete(task.id) }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)

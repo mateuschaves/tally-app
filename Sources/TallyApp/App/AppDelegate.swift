@@ -1,13 +1,14 @@
 import AppKit
-import Carbon.HIToolbox
+import Combine
 
-/// Sets up the floating widget and the global ⌘K hotkey once the app launches.
+/// Sets up the floating widget and the system-wide hotkeys once the app launches.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let store = AppStore()
     private var panelController: PanelController?
-    private var hotKey: GlobalHotKey?
+    private var hotKeys: HotKeyCenter?
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Accessory app: no Dock icon, no app menu bar (also set via LSUIElement).
@@ -15,10 +16,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         panelController = PanelController(store: store)
 
-        // ⌘K anywhere → quick entry (Carbon, no accessibility permission needed).
-        hotKey = GlobalHotKey(keyCode: UInt32(kVK_ANSI_K), modifiers: UInt32(cmdKey)) { [weak self] in
-            Task { @MainActor in self?.store.openQuickEntry() }
+        // Global hotkeys (Carbon, no accessibility permission needed), kept in
+        // sync with Preferências → Atalhos. Re-recording or toggling a shortcut
+        // republishes `store.shortcuts`, which re-registers everything.
+        hotKeys = HotKeyCenter { [weak self] id in
+            Task { @MainActor in self?.store.runAction(id) }
         }
+        store.$shortcuts
+            .sink { [weak self] shortcuts in
+                Task { @MainActor in self?.hotKeys?.apply(shortcuts) }
+            }
+            .store(in: &cancellables)
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
