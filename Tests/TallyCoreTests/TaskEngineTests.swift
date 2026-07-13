@@ -10,7 +10,7 @@ final class TaskEngineTests: XCTestCase {
     }
 
     private func task(_ id: Int, _ state: TaskState, seconds: Int = 0) -> TaskItem {
-        TaskItem(id: uuid(id), title: "T\(id)", state: state, seconds: seconds)
+        TaskItem(id: uuid(id), title: "T\(id)", seconds: seconds, state: state)
     }
 
     private func state(_ tasks: [TaskItem], _ id: Int) -> TaskState? {
