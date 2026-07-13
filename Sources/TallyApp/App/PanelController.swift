@@ -141,11 +141,17 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func windowDidResize(_ notification: Notification) {
         guard (notification.object as? NSWindow) === widgetPanel, let top = pinnedTop else { return }
-        var frame = widgetPanel.frame
+        // This fires while NSHostingView is still inside `layout()` (the resize
+        // comes from `.preferredContentSize` sizing), so it must not force a
+        // synchronous re-display: `setFrame(_:display: true)` re-enters
+        // `NSHostingView.layout()`, and while the fitted height is animating each
+        // pass yields a new height — the cycle recurses on one stack until it
+        // overflows (EXC_BAD_ACCESS in layout/RenderDisplayList). Moving only the
+        // origin never re-posts `didResize` and never forces display.
+        let frame = widgetPanel.frame
         let newOriginY = top - frame.height
         if abs(frame.origin.y - newOriginY) > 0.5 {
-            frame.origin.y = newOriginY
-            widgetPanel.setFrame(frame, display: true)
+            widgetPanel.setFrameOrigin(CGPoint(x: frame.origin.x, y: newOriginY))
         }
     }
 }
