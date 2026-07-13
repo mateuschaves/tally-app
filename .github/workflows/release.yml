@@ -1,0 +1,113 @@
+# Release do Tally + publicação no Homebrew.
+#
+# Dispara de dois jeitos:
+#   1. Push de uma tag `v*` (ex.: `git tag v0.1.0 && git push origin v0.1.0`)
+#   2. Manualmente: Actions → "Release" → Run workflow, informando a versão
+#      (nesse caso a tag é criada pelo próprio release, no commit do main).
+#
+# O job roda num runner macOS, builda o DMG com scripts/build-dmg.sh (assinatura
+# ad-hoc — veja o README para assinar com Developer ID), publica o GitHub
+# Release com o DMG e atualiza Casks/tally.rb no main com a versão + sha256.
+# Se o secret HOMEBREW_TAP_TOKEN existir, também sincroniza o cask com o tap
+# dedicado mateuschaves/homebrew-tally.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão a publicar (ex.: 0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, GitHub Release e cask
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolver versão
+        id: meta
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            VERSION="${INPUT_VERSION#v}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "✗ Versão inválida: '$VERSION' (esperado algo como 0.1.0)"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Testes do TallyCore
+        run: swift test
+
+      - name: Instalar XcodeGen
+        run: brew install xcodegen
+
+      - name: Build do DMG
+        env:
+          MARKETING_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          ./scripts/build-dmg.sh
+          cp dist/Tally.dmg "dist/Tally-${MARKETING_VERSION}.dmg"
+          shasum -a 256 "dist/Tally-${MARKETING_VERSION}.dmg"
+
+      - name: Criar GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          gh release create "$TAG" "dist/Tally-$VERSION.dmg" \
+            --title "Tally $VERSION" \
+            --generate-notes \
+            --target "$GITHUB_SHA"
+
+      - name: Atualizar o cask no main
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          SHA256=$(shasum -a 256 "dist/Tally-$VERSION.dmg" | awk '{print $1}')
+          git fetch origin main
+          git checkout -B main origin/main
+          /usr/bin/sed -i '' -E "s|^  version \".*\"$|  version \"$VERSION\"|" Casks/tally.rb
+          /usr/bin/sed -i '' -E "s|^  sha256 \".*\"$|  sha256 \"$SHA256\"|" Casks/tally.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/tally.rb
+          git diff --cached --quiet || {
+            git commit -m "Bump Homebrew cask to $VERSION"
+            git push origin main
+          }
+
+      - name: Sincronizar com o tap dedicado (opcional)
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          # Só roda se o secret HOMEBREW_TAP_TOKEN estiver configurado e o
+          # repositório mateuschaves/homebrew-tally existir.
+          if [ -z "${TAP_TOKEN:-}" ]; then
+            echo "HOMEBREW_TAP_TOKEN não configurado — pulando o tap dedicado."
+            exit 0
+          fi
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/mateuschaves/homebrew-tally.git" tap
+          mkdir -p tap/Casks
+          cp Casks/tally.rb tap/Casks/tally.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/tally.rb
+          git diff --cached --quiet || {
+            git commit -m "Bump tally cask to $VERSION"
+            git push origin HEAD
+          }
