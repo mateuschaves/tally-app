@@ -9,6 +9,10 @@
 #   export SIGN_IDENTITY="Developer ID Application: Seu Nome (TEAMID)"
 #   export NOTARY_PROFILE="tally-notary"   # perfil salvo com `xcrun notarytool store-credentials`
 #
+# Sem SIGN_IDENTITY o app sai com assinatura ad-hoc ("-"): binários sem nenhuma
+# assinatura não executam em Apple Silicon. Para sobrescrever a versão do
+# project.yml (usado pelo CI de release): export MARKETING_VERSION="0.2.0".
+#
 # Requer: macOS, Xcode, XcodeGen (brew install xcodegen).
 
 set -euo pipefail
@@ -36,6 +40,7 @@ echo "▸ Compilando em Release… (log completo: $LOG)"
 # (com o erro) e aponta para o log completo, em vez de truncar tudo.
 if ! xcodebuild -project "$APP_NAME.xcodeproj" -scheme "$SCHEME" \
     -configuration Release -derivedDataPath "$BUILD_DIR" \
+    ${MARKETING_VERSION:+MARKETING_VERSION=$MARKETING_VERSION} \
     clean build > "$LOG" 2>&1; then
   echo "✗ Falha no build. Últimas linhas do log:"
   tail -40 "$LOG"
@@ -49,6 +54,10 @@ if [[ -n "${SIGN_IDENTITY:-}" ]]; then
   echo "▸ Assinando o app com: $SIGN_IDENTITY"
   codesign --force --options runtime --timestamp --deep \
     --sign "$SIGN_IDENTITY" "$PRODUCT"
+else
+  # Ad-hoc não aceita --timestamp nem faz sentido com hardened runtime.
+  echo "▸ Assinando o app ad-hoc (sem SIGN_IDENTITY)…"
+  codesign --force --deep --sign - "$PRODUCT"
 fi
 
 echo "▸ Montando o DMG…"

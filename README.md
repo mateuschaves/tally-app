@@ -274,52 +274,37 @@ create-dmg --volname "Tally" --app-drop-link 380 170 --icon "Tally.app" 130 170 
 
 ## Publicar no Homebrew
 
-Apps macOS de interface são distribuídos como **Homebrew Cask** (não "formula"). Para um
-projeto pessoal, o caminho prático é um **tap próprio**.
+Apps macOS de interface são distribuídos como **Homebrew Cask** (não "formula"). O deploy é
+**automatizado** pelo workflow [`Release`](.github/workflows/release.yml): ele roda os testes,
+builda o `Tally-<versão>.dmg` num runner macOS, publica o **GitHub Release** e atualiza o
+cask [`Casks/tally.rb`](Casks/tally.rb) (versão + sha256) no `main` — o cask é servido pelo
+próprio repositório, sem precisar de um repo `homebrew-*` separado.
 
-**1. Publique o artefato num GitHub Release**
-
-Crie uma tag e um release, e anexe o `dist/Tally.dmg` (idealmente **assinado + notarizado**).
+**Publicar uma versão** (qualquer um dos dois):
 
 ```bash
+# a) por tag:
 git tag v0.1.0 && git push origin v0.1.0
-# suba o dist/Tally.dmg como asset do release v0.1.0 (site do GitHub ou `gh release create`)
-shasum -a 256 dist/Tally.dmg    # anote o sha256
+
+# b) pelo site: Actions → "Release" → Run workflow → informe a versão (ex.: 0.1.0)
 ```
 
-**2. Crie um tap** — um repositório chamado `homebrew-<nome>`, ex.: `mateuschaves/homebrew-tally`,
-com o arquivo `Casks/tally.rb`:
-
-```ruby
-cask "tally" do
-  version "0.1.0"
-  sha256 "COLE_O_SHA256_AQUI"
-
-  url "https://github.com/mateuschaves/tally-app/releases/download/v#{version}/Tally.dmg"
-  name "Tally"
-  desc "Widget flutuante de tarefas para macOS"
-  homepage "https://github.com/mateuschaves/tally-app"
-
-  depends_on macos: ">= :sonoma"
-
-  app "Tally.app"
-
-  zap trash: [
-    "~/Library/Application Support/Tally",
-  ]
-end
-```
-
-**3. Instale a partir do tap:**
+**Instalar via Homebrew** (após o primeiro release):
 
 ```bash
-brew tap mateuschaves/tally
+brew tap mateuschaves/tally https://github.com/mateuschaves/tally-app.git
 brew install --cask tally
-# (ou, em uma linha) brew install --cask mateuschaves/tally/tally
 ```
 
-> **Notarização importa:** se o app não for assinado/notarizado, o Gatekeeper bloqueia e pode
-> ser preciso instalar com `--no-quarantine`. Para uma experiência limpa, notarize o app (e o DMG).
+> **Gatekeeper:** o CI assina o app **ad-hoc** (sem conta Apple Developer), então a primeira
+> abertura pode ser bloqueada — libere em Ajustes do Sistema → Privacidade e Segurança →
+> "Abrir mesmo assim", ou instale com `brew install --cask --no-quarantine tally`. Para uma
+> experiência limpa, assine e notarize com Developer ID (seção acima) — no CI isso exige
+> importar o certificado via secrets (follow-up).
+>
+> **Tap dedicado (opcional):** para o comando curto `brew tap mateuschaves/tally` sem URL,
+> crie o repositório `mateuschaves/homebrew-tally` e adicione um secret `HOMEBREW_TAP_TOKEN`
+> (PAT com escrita nesse repo) — o workflow passa a sincronizar o cask para lá a cada release.
 >
 > **Cask oficial (`homebrew-cask`):** só faz sentido depois de tração/estabilidade — o
 > repositório oficial exige critérios de notoriedade e versionamento. Comece com o tap próprio.
@@ -361,7 +346,7 @@ Fora do escopo atual (uma variante, local-first):
 
 - Sync/backend real (CloudKit ou API própria) via `SyncingTaskRepository`.
 - As outras 3 variantes do widget (Pílula, Agenda do dia, Vidro puro).
-- Ícone do app (`AppIcon`), auto-update (Sparkle) e CI (GitHub Actions em `macos-latest`).
+- Auto-update (Sparkle) e assinatura Developer ID + notarização no CI de release.
 - Liquid Glass nativo (`.glassEffect`) no macOS 26+, com fallback para `NSVisualEffectView`.
 - Notificações / modo foco; exportação (CSV/Markdown).
 
