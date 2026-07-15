@@ -37,6 +37,32 @@ final class ReportBuilderTests: XCTestCase {
         XCTAssertTrue(report.text.hasSuffix("Sem atividade registrada."))
     }
 
+    func testTodayExcludesCompletionsFromOtherDays() {
+        // A task finished yesterday lingers in the store (state == .done), but it
+        // must not appear in *today's* summary — only tasks completed today do.
+        let cal = PtBrDates.calendar
+        let today = cal.date(from: DateComponents(year: 2026, month: 7, day: 15, hour: 10))!
+        let yesterday = cal.date(from: DateComponents(year: 2026, month: 7, day: 14, hour: 16))!
+        let earlierToday = cal.date(from: DateComponents(year: 2026, month: 7, day: 15, hour: 9))!
+
+        var doneYesterday = TaskItem(title: "Concluída ontem", seconds: 1200, state: .done)
+        doneYesterday.doneAt = yesterday
+        var doneToday = TaskItem(title: "Concluída hoje", seconds: 600, state: .done)
+        doneToday.doneAt = earlierToday
+        let active = TaskItem(title: "Em andamento", seconds: 300, state: .now)
+
+        let report = ReportBuilder.build(
+            tasks: [doneYesterday, doneToday, active], offset: 0, now: today)
+
+        XCTAssertTrue(report.isToday)
+        // Only "Concluída hoje" counts — yesterday's completion is filtered out.
+        XCTAssertEqual(report.doneCount, 1)
+        XCTAssertEqual(report.doneTasks.map(\.title), ["Concluída hoje"])
+        XCTAssertFalse(report.text.contains("Concluída ontem"))
+        // Focus = active (300) + done today (600); yesterday's 1200s is excluded.
+        XCTAssertEqual(report.focusLabel, TimeFormat.duration(900))
+    }
+
     func testPastDayFromRealCompletions() {
         // A task completed "yesterday" shows up in the offset-1 report.
         let cal = PtBrDates.calendar

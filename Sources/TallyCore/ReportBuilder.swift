@@ -81,8 +81,18 @@ public enum ReportBuilder {
         let current = tasks.first { $0.state == .now }
         let nextTasks = tasks.filter { $0.state == .next }
         let blockedTasks = tasks.filter { $0.state == .blocked }
-        let doneTasks = tasks.filter { $0.state == .done }
-        let focusSeconds = tasks.reduce(0) { $0 + $1.seconds }
+
+        // Completions belong to the calendar day they were finished on. This
+        // helper filters `.done` tasks to a given day so a task finished on one
+        // day never leaks into another day's summary — it stays in the store to
+        // feed *its* day's history, but only surfaces there.
+        let calendar = PtBrDates.calendar
+        func doneTasks(on target: Date) -> [TaskItem] {
+            tasks.filter { task in
+                guard task.state == .done, let doneAt = task.doneAt else { return false }
+                return calendar.isDate(doneAt, inSameDayAs: target)
+            }
+        }
 
         let clockTime = PtBrDates.time(now)
 
@@ -101,11 +111,16 @@ public enum ReportBuilder {
         var focus: Int
 
         if isToday {
-            doneSource = doneTasks
+            // Only tasks completed today belong in today's summary.
+            doneSource = doneTasks(on: now)
             blockedRows = blockedTasks.map { BlockedLine(title: $0.title, reason: $0.reason ?? "", details: $0.details) }
             planRows = nextTasks.map { PlanLine(title: $0.title, estimateLabel: TimeFormat.minutes($0.estimate), details: $0.details) }
                 + blockedTasks.map { PlanLine(title: $0.title + " (desbloquear)", estimateLabel: TimeFormat.minutes($0.estimate), details: $0.details) }
-            focus = focusSeconds
+            // Focus = live work (active/blocked/queued) + time on tasks finished
+            // today. Completions carried over from other days are excluded so the
+            // total reflects only today.
+            let liveSeconds = tasks.filter { $0.state != .done }.reduce(0) { $0 + $1.seconds }
+            focus = liveSeconds + doneSource.reduce(0) { $0 + $1.seconds }
         } else {
             let target = dayDate(offset: offset, now: now)
             displayDate = target
@@ -116,11 +131,7 @@ public enum ReportBuilder {
 
             // Real history: tasks completed on that calendar day. Blocked/plan are
             // ephemeral states with no per-day snapshot.
-            let calendar = PtBrDates.calendar
-            doneSource = tasks.filter { task in
-                guard task.state == .done, let doneAt = task.doneAt else { return false }
-                return calendar.isDate(doneAt, inSameDayAs: target)
-            }
+            doneSource = doneTasks(on: target)
             blockedRows = []
             planRows = []
             focus = doneSource.reduce(0) { $0 + $1.seconds }
