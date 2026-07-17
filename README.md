@@ -40,6 +40,8 @@ rápida por **⌘K** e um **Resumo do dia** pronto para copiar ao gestor.
 - **Estimativas** em horas: 1h / 2h / 4h / 8h / 16h.
 - **Fechar** o widget pelo botão vermelho (traffic light) do cabeçalho — ao abrir o app,
   ele sempre volta **centralizado** na tela.
+- **Editar tarefa** pelo lápis (na AGORA, na fila e nas impedidas): ajusta **projeto**,
+  **prioridade**, **estimativa** e **tempo registrado** (⏎ salva / esc cancela).
 - **Apagar tarefa** pela lixeira da fila, com diálogo de confirmação (⏎ confirma / esc cancela).
 - **⌘K** (global): captura estilo Spotlight com parser de linguagem natural
   (`#projeto`, `!alta/!média/!baixa`, `30m`/`2h`) e chips de preview.

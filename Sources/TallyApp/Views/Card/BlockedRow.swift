@@ -29,6 +29,7 @@ struct BlockedRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
+            PencilButton(theme: theme, size: 22, glyphSize: 11, baseOpacity: 0.4) { store.openEdit(task.id) }
             UnblockButton(theme: theme) { store.unblock(task.id) }
         }
         .padding(.horizontal, 14)

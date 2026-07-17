@@ -11,6 +11,7 @@ enum OverlayKind: Equatable {
     case report
     case newProject
     case deleteTask
+    case editTask
 }
 
 /// Theme selection in Preferências — `system` follows macOS, mirroring the
@@ -26,6 +27,18 @@ struct FormState: Equatable {
     var project = "Geral"
     var priority: Priority = .media
     var estimate = 60
+}
+
+/// Fields for the "Editar tarefa" overlay (`editId` targets the task). Unlike the
+/// add form these are seeded from the existing task and the logged time is
+/// editable, so it carries `loggedSeconds` alongside the estimate.
+struct EditFormState: Equatable {
+    var project = "Geral"
+    var priority: Priority = .media
+    /// Estimate in minutes (matches `TaskItem.estimate`).
+    var estimate = 60
+    /// Logged time in seconds (matches `TaskItem.seconds`).
+    var loggedSeconds = 0
 }
 
 /// The single source of truth — a direct port of the prototype's React component
@@ -81,6 +94,9 @@ final class AppStore: NSObject, ObservableObject {
     @Published var newProjectColor = "#5AC8FA"
     /// Task pending delete confirmation (`delId`).
     @Published var deleteId: UUID?
+    /// Task being edited in the "Editar tarefa" overlay, plus its working fields.
+    @Published var editId: UUID?
+    @Published var editForm = EditFormState()
     /// Shortcut being re-recorded in Preferências (`recordingId`), plus the
     /// validation message shown in the window footer (`conflictMsg`).
     @Published var recordingId: String?
@@ -366,6 +382,43 @@ final class AppStore: NSObject, ObservableObject {
         persist()
     }
 
+    // MARK: Edit task (estimate, logged time, priority, project)
+
+    /// Open the "Editar tarefa" overlay, seeding the form from the target task.
+    func openEdit(_ id: UUID) {
+        guard let task = tasks.first(where: { $0.id == id }) else { return }
+        editId = id
+        editForm = EditFormState(
+            project: task.project,
+            priority: task.priority,
+            estimate: task.estimate,
+            loggedSeconds: task.seconds
+        )
+        blockId = nil
+        deleteId = nil
+        overlay = .editTask
+    }
+
+    var editTask: TaskItem? {
+        editId.flatMap { id in tasks.first { $0.id == id } }
+    }
+
+    /// Apply the edited fields to the task and close the overlay.
+    func submitEdit() {
+        guard let id = editId else { return }
+        tasks = TaskEngine.edit(
+            tasks, id: id,
+            project: editForm.project,
+            priority: editForm.priority,
+            estimate: editForm.estimate,
+            seconds: editForm.loggedSeconds,
+            now: Date()
+        )
+        editId = nil
+        overlay = .none
+        persist()
+    }
+
     func openReport() {
         reportOffset = 0
         copied = false
@@ -377,6 +430,7 @@ final class AppStore: NSObject, ObservableObject {
         overlay = .none
         blockId = nil
         deleteId = nil
+        editId = nil
         addOpen = false
         copied = false
     }

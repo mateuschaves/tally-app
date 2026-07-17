@@ -134,6 +134,57 @@ final class TaskEngineTests: XCTestCase {
         XCTAssertEqual(ticked.first { $0.id == uuid(1) }?.seconds, 5)
     }
 
+    // MARK: - Edit
+
+    func testEditUpdatesAllFields() {
+        let tasks = [task(1, .now, seconds: 100)]
+        let result = TaskEngine.edit(
+            tasks, id: uuid(1),
+            project: "Backend", priority: .alta, estimate: 90, seconds: 600, now: now
+        )
+        let edited = result.first { $0.id == uuid(1) }
+        XCTAssertEqual(edited?.project, "Backend")
+        XCTAssertEqual(edited?.priority, .alta)
+        XCTAssertEqual(edited?.estimate, 90)
+        XCTAssertEqual(edited?.seconds, 600)
+        XCTAssertEqual(edited?.updatedAt, now)
+        XCTAssertEqual(edited?.state, .now) // lifecycle untouched
+    }
+
+    func testEditAppliesOnlyProvidedFields() {
+        var original = task(1, .now, seconds: 100)
+        original.project = "Design"
+        original.priority = .baixa
+        original.estimate = 45
+        let result = TaskEngine.edit([original], id: uuid(1), priority: .alta, now: now)
+        let edited = result.first { $0.id == uuid(1) }
+        XCTAssertEqual(edited?.priority, .alta)         // changed
+        XCTAssertEqual(edited?.project, "Design")       // untouched
+        XCTAssertEqual(edited?.estimate, 45)            // untouched
+        XCTAssertEqual(edited?.seconds, 100)            // untouched
+    }
+
+    func testEditClampsNegativeValues() {
+        let tasks = [task(1, .now, seconds: 100)]
+        let result = TaskEngine.edit(tasks, id: uuid(1), estimate: -10, seconds: -5, now: now)
+        let edited = result.first { $0.id == uuid(1) }
+        XCTAssertEqual(edited?.estimate, 0)
+        XCTAssertEqual(edited?.seconds, 0)
+    }
+
+    func testEditIgnoresBlankProject() {
+        var original = task(1, .now)
+        original.project = "Backend"
+        let result = TaskEngine.edit([original], id: uuid(1), project: "   ", now: now)
+        XCTAssertEqual(result.first { $0.id == uuid(1) }?.project, "Backend")
+    }
+
+    func testEditUnknownIdIsNoop() {
+        let tasks = [task(1, .now)]
+        let result = TaskEngine.edit(tasks, id: uuid(9), priority: .alta, now: now)
+        XCTAssertEqual(result, tasks)
+    }
+
     // MARK: - Delete
 
     func testDeleteRemovesTask() {

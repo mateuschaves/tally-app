@@ -36,6 +36,7 @@ struct NextTaskRow: View {
                 .monospacedDigit()
                 .foregroundColor(theme.tx3)
 
+            PencilButton(theme: theme, size: 22, glyphSize: 11, baseOpacity: 0.4) { store.openEdit(task.id) }
             FlagButton(theme: theme, size: 22, glyphSize: 12, baseOpacity: 0.4) { store.openBlock(task.id) }
             TrashButton(theme: theme, size: 22, glyphSize: 11, baseOpacity: 0.4) { store.openDelete(task.id) }
         }

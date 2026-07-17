@@ -138,6 +138,32 @@ struct TrashButton: View {
     }
 }
 
+/// The circular "edit task" affordance (pencil). Dim by default, accent (with a
+/// soft accent fill) on hover — same treatment as `FlagButton`/`TrashButton`.
+struct PencilButton: View {
+    let theme: Theme
+    var size: CGFloat = 22
+    var glyphSize: CGFloat = 11
+    var baseOpacity: Double = 0.4
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "pencil")
+                .font(.system(size: glyphSize))
+                .foregroundColor(hover ? theme.accent : theme.tx2)
+                .opacity(hover ? 1 : baseOpacity)
+                .frame(width: size, height: size)
+                .background(Circle().fill(hover ? theme.accent.opacity(0.12) : .clear))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .help("Editar tarefa")
+    }
+}
+
 /// The circular "↺ resume" affordance for blocked tasks (24px).
 struct UnblockButton: View {
     let theme: Theme

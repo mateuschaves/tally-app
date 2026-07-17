@@ -125,6 +125,32 @@ public enum TaskEngine {
         }
     }
 
+    /// Edit a task's user-controllable fields — project, priority, the estimate
+    /// (in minutes) and the logged time (in seconds). Only the arguments that are
+    /// provided are applied, so callers can update any subset. `estimate` and
+    /// `seconds` are clamped to be non-negative and a blank `project` is ignored,
+    /// keeping the invariants the rest of the engine relies on. The task's
+    /// lifecycle state is never touched here.
+    public static func edit(
+        _ tasks: [TaskItem],
+        id: UUID,
+        project: String? = nil,
+        priority: Priority? = nil,
+        estimate: Int? = nil,
+        seconds: Int? = nil,
+        now: Date
+    ) -> [TaskItem] {
+        patch(tasks, id: id, now: now) { task in
+            if let project {
+                let trimmed = project.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { task.project = trimmed }
+            }
+            if let priority { task.priority = priority }
+            if let estimate { task.estimate = max(0, estimate) }
+            if let seconds { task.seconds = max(0, seconds) }
+        }
+    }
+
     /// Add a new task. New tasks become `.now` only if nothing is active yet,
     /// otherwise they join the queue. Ported from `addTask`.
     /// Returns the tasks unchanged when the title is empty.
