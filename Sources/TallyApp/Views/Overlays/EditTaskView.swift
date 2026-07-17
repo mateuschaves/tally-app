@@ -79,22 +79,25 @@ struct EditTaskView: View {
 
     // MARK: Derived bindings (hours/minutes ⇄ the stored minute/second totals)
 
+    // The setters clamp the computed total to zero so the form state never goes
+    // negative while typing — a stray negative entry would otherwise make the
+    // `% 60`/`% 3600` remainders yield confusing hour/minute values.
     private var estimateHours: Binding<Int> {
         Binding(
             get: { store.editForm.estimate / 60 },
-            set: { store.editForm.estimate = $0 * 60 + store.editForm.estimate % 60 }
+            set: { store.editForm.estimate = max(0, $0 * 60 + store.editForm.estimate % 60) }
         )
     }
     private var estimateMinutes: Binding<Int> {
         Binding(
             get: { store.editForm.estimate % 60 },
-            set: { store.editForm.estimate = (store.editForm.estimate / 60) * 60 + $0 }
+            set: { store.editForm.estimate = max(0, (store.editForm.estimate / 60) * 60 + $0) }
         )
     }
     private var loggedHours: Binding<Int> {
         Binding(
             get: { store.editForm.loggedSeconds / 3600 },
-            set: { store.editForm.loggedSeconds = $0 * 3600 + store.editForm.loggedSeconds % 3600 }
+            set: { store.editForm.loggedSeconds = max(0, $0 * 3600 + store.editForm.loggedSeconds % 3600) }
         )
     }
     private var loggedMinutes: Binding<Int> {
@@ -104,7 +107,7 @@ struct EditTaskView: View {
             set: {
                 let leftoverSeconds = store.editForm.loggedSeconds % 60
                 let hoursPart = (store.editForm.loggedSeconds / 3600) * 3600
-                store.editForm.loggedSeconds = hoursPart + $0 * 60 + leftoverSeconds
+                store.editForm.loggedSeconds = max(0, hoursPart + $0 * 60 + leftoverSeconds)
             }
         )
     }
