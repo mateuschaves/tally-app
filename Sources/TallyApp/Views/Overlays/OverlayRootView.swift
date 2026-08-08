@@ -16,6 +16,7 @@ struct OverlayRootView: View {
         case .report: return 0.26
         case .newProject: return 0.28
         case .deleteTask: return 0.28
+        case .editTask: return 0.28
         }
     }
 
@@ -64,6 +65,8 @@ struct OverlayRootView: View {
             NewProjectView()
         case .deleteTask:
             DeleteTaskView()
+        case .editTask:
+            EditTaskView()
         }
     }
 }

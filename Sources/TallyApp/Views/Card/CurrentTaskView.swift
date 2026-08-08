@@ -53,6 +53,7 @@ struct CurrentTaskView: View {
 
                     Spacer(minLength: 0)
 
+                    PencilButton(theme: theme, size: 24, glyphSize: 12, baseOpacity: 0.55) { store.openEdit(task.id) }
                     FlagButton(theme: theme, size: 24, glyphSize: 13, baseOpacity: 0.55) { store.openBlock(task.id) }
                 }
                 .padding(.top, 6)
